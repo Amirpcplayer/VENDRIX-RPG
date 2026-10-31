@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<meta>
+    <info author="VENDRIX Development Team" name="VENDRIX Signature HUD" type="script" version="1.0.0" description="Lightweight DX-based player HUD for VENDRIX RPG." />
+    <script src="server.lua" type="server" />
+    <script src="client.lua" type="client" cache="false" />
+</meta>
