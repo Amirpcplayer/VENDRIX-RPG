@@ -44,7 +44,8 @@
   function updateMusicButton(playing) {
     musicToggle.classList.toggle("playing", playing);
     musicToggle.setAttribute("aria-pressed", String(playing));
-    musicToggle.querySelector("span").textContent = playing ? "موسیقی روشن" : "موسیقی خاموش";
+    musicToggle.querySelector(".music-label").textContent = playing ? "موسیقی روشن" : "موسیقی خاموش";
+    musicToggle.setAttribute("aria-label", playing ? "قطع موسیقی" : "پخش موسیقی");
   }
 
   async function toggleMusic() {
@@ -103,4 +104,13 @@
   window.VENDRIX = { setBusy, setStatus };
   updateMusicButton(false);
   setMode("login");
+  // Attempt autoplay as soon as the login UI loads; CEF/browser policy may still require user interaction.
+  music.volume = 0.28;
+  const startBackgroundMusic = () => {
+    if (!music.paused) return;
+    music.play().then(() => updateMusicButton(true)).catch(() => updateMusicButton(false));
+  };
+  startBackgroundMusic();
+  document.addEventListener("pointerdown", startBackgroundMusic, { once: true, passive: true });
+  document.addEventListener("keydown", startBackgroundMusic, { once: true });
 })();
