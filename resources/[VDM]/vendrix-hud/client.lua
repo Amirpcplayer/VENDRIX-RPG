@@ -103,9 +103,12 @@ local function drawHUD()
     if not isElement(localPlayer) or isPlayerMapVisible() then return end
     sx, sy = guiGetScreenSize()
 
-    local scale = math.min(1, sx / 1100)
-    local w, h = 366 * scale, 190 * scale
-    local x, y = sx - w - 20 * scale, 20 * scale
+    -- Tall, transparent stack. Larger at 1080p; scales down only on small screens.
+    local scale = clamp(sy / 900, 0.78, 1.18)
+    local w = 224 * scale
+    local x = sx - w - 24 * scale
+    local y = 26 * scale
+
     local health = clamp(getElementHealth(localPlayer), 0, 100)
     local armor = clamp(getPedArmor(localPlayer), 0, 100)
     local cash = getPlayerMoney(localPlayer)
@@ -113,48 +116,62 @@ local function drawHUD()
     local weapon = getPedWeapon(localPlayer) or 0
     local clip = getPedAmmoInClip(localPlayer) or 0
     local totalAmmo = getPedTotalAmmo(localPlayer) or 0
-    local unit = scale
+    local u = scale
 
-    -- Transparent HUD: no panel, frame, or background fill.
-    txt("V", x + 12*unit, y + 5*unit, 25*unit, 27*unit, C.red, 1.12*unit, "center")
-    txt("VENDRIX", x + 39*unit, y + 5*unit, 116*unit, 27*unit, C.gold, 0.9*unit)
-    txt("PLAYER STATUS", x + 166*unit, y + 5*unit, w - 180*unit, 27*unit, C.muted, 0.58*unit, "right")
+    -- Header: no background or enclosing frame.
+    txt("V", x, y, 32*u, 34*u, C.red, 1.45*u, "center")
+    txt("VENDRIX", x + 35*u, y, 145*u, 34*u, C.gold, 1.08*u)
+    rect(x + 1*u, y + 36*u, w - 2*u, 2*u, C.goldDim)
 
-    -- Health
-    if not image("hp", x + 14*unit, y + 44*unit, 25*unit, 25*unit) then
-        txt("+", x + 14*unit, y + 43*unit, 25*unit, 25*unit, C.red, 1.2*unit, "center")
+    -- HEALTH: full row
+    local rowY = y + 49*u
+    if not image("hp", x + 2*u, rowY, 40*u, 40*u) then
+        txt("+", x + 2*u, rowY, 40*u, 40*u, C.red, 1.7*u, "center")
     end
-    txt("HP", x + 45*unit, y + 41*unit, 35*unit, 17*unit, C.muted, 0.58*unit)
-    txt(math.floor(health) .. "%", x + 78*unit, y + 40*unit, 55*unit, 18*unit, C.white, 0.72*unit, "right")
-    drawBar(x + 45*unit, y + 60*unit, 88*unit, 5*unit, health, 100, C.red)
+    txt("HEALTH", x + 50*u, rowY - 2*u, 100*u, 22*u, C.white, 0.83*u)
+    txt(math.floor(health) .. "%", x + 144*u, rowY - 2*u, 72*u, 22*u, C.red, 0.92*u, "right")
+    drawBar(x + 50*u, rowY + 25*u, w - 54*u, 8*u, health, 100, C.red)
 
-    -- Armor
-    if not image("armor", x + 150*unit, y + 44*unit, 25*unit, 25*unit) then
-        txt("A", x + 150*unit, y + 43*unit, 25*unit, 25*unit, C.blue, 0.8*unit, "center")
+    -- ARMOR: own row underneath health
+    rowY = y + 105*u
+    if not image("armor", x + 2*u, rowY, 40*u, 40*u) then
+        txt("A", x + 2*u, rowY, 40*u, 40*u, C.blue, 1.15*u, "center")
     end
-    txt("ARMOR", x + 181*unit, y + 41*unit, 49*unit, 17*unit, C.muted, 0.55*unit)
-    txt(math.floor(armor) .. "%", x + 230*unit, y + 40*unit, 47*unit, 18*unit, C.white, 0.72*unit, "right")
-    drawBar(x + 181*unit, y + 60*unit, 96*unit, 5*unit, armor, 100, C.blue)
+    txt("ARMOR", x + 50*u, rowY - 2*u, 100*u, 22*u, C.white, 0.83*u)
+    txt(math.floor(armor) .. "%", x + 144*u, rowY - 2*u, 72*u, 22*u, C.blue, 0.92*u, "right")
+    drawBar(x + 50*u, rowY + 25*u, w - 54*u, 8*u, armor, 100, C.blue)
 
-    -- Money and wanted
-    if not image("money", x + 18*unit, y + 81*unit, 23*unit, 23*unit) then
-        txt("$", x + 18*unit, y + 79*unit, 23*unit, 26*unit, C.gold, 0.9*unit, "center")
+    -- MONEY: separate line
+    rowY = y + 164*u
+    if not image("money", x + 3*u, rowY, 34*u, 34*u) then
+        txt("$", x + 3*u, rowY - 1*u, 34*u, 34*u, C.gold, 1.35*u, "center")
     end
-    txt(moneyString(cash), x + 47*unit, y + 78*unit, 137*unit, 28*unit, C.gold, 0.78*unit)
-    txt("WANTED", x + 188*unit, y + 78*unit, 57*unit, 28*unit, C.muted, 0.52*unit)
-    drawWanted(x + 244*unit, y + 85*unit, wanted)
+    txt("CASH", x + 48*u, rowY - 2*u, w - 50*u, 18*u, C.muted, 0.67*u)
+    txt(moneyString(cash), x + 48*u, rowY + 15*u, w - 50*u, 24*u, C.gold, 0.92*u)
 
-    -- Weapon card
+    -- WANTED: its own row with larger stars.
+    rowY = y + 216*u
+    txt("WANTED LEVEL", x + 1*u, rowY, w - 2*u, 21*u, C.white, 0.77*u)
+    for i = 1, 6 do
+        local px = x + 2*u + (i - 1) * 36*u
+        local tint = i <= wanted and tocolor(255,255,255,255) or tocolor(100,105,115,115)
+        if not image("wanted_star", px, rowY + 24*u, 29*u, 29*u, tint) then
+            txt("★", px, rowY + 22*u, 31*u, 32*u, i <= wanted and C.red or C.empty, 1.12*u, "center")
+        end
+    end
+
+    -- WEAPON: image centered on its own row; name and ammo below.
+    rowY = y + 278*u
     local weaponFile = "weapon_" .. tostring(weapon)
-    if not image(weaponFile, x + 20*unit, y + 124*unit, 105*unit, 43*unit) then
-        drawWeaponFallback(weapon, x + 20*unit, y + 125*unit)
+    if not image(weaponFile, x + 8*u, rowY, w - 16*u, 67*u) then
+        txt("WEAPON", x + 8*u, rowY + 12*u, w - 16*u, 36*u, C.gold, 0.88*u, "center")
     end
-    txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)), x + 132*unit, y + 120*unit, 131*unit, 22*unit, C.white, 0.66*unit)
-    txt("AMMO", x + 132*unit, y + 143*unit, 46*unit, 19*unit, C.muted, 0.52*unit)
-    if not image("ammo", x + 180*unit, y + 146*unit, 13*unit, 13*unit) then
-        txt("•", x + 180*unit, y + 143*unit, 13*unit, 18*unit, C.gold, 0.8*unit, "center")
+    rect(x + 1*u, rowY + 71*u, w - 2*u, 1*u, C.goldDim)
+    txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)), x + 1*u, rowY + 77*u, w - 2*u, 25*u, C.white, 0.83*u, "center")
+    if not image("ammo", x + 36*u, rowY + 108*u, 24*u, 24*u) then
+        txt("AMMO", x + 30*u, rowY + 107*u, 44*u, 24*u, C.gold, 0.61*u, "center")
     end
-    txt(tostring(clip) .. " / " .. tostring(totalAmmo), x + 197*unit, y + 140*unit, 126*unit, 24*unit, C.gold, 0.73*unit, "right")
+    txt(tostring(clip) .. " / " .. tostring(totalAmmo), x + 64*u, rowY + 105*u, w - 68*u, 29*u, C.gold, 0.94*u, "left")
 end
 
 local function hideNativeHUD()
