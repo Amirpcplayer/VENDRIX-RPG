@@ -118,16 +118,8 @@ local function drawHUD()
     local totalAmmo = getPedTotalAmmo(localPlayer) or 0
     local u = scale
 
-    -- Branded header: optional custom transparent logo PNG; stylized DX fallback.
-    if not image("logo", x + 1*u, y - 1*u, 202*u, 39*u) then
-        -- Neon-red emblem mark with gold typography and subtle dark offset.
-        dxDrawLine(x + 5*u, y + 29*u, x + 16*u, y + 5*u, tocolor(255, 48, 76, 210), 2*u, false)
-        dxDrawLine(x + 16*u, y + 5*u, x + 27*u, y + 29*u, tocolor(255, 48, 76, 210), 2*u, false)
-        dxDrawLine(x + 9*u, y + 21*u, x + 23*u, y + 21*u, C.gold, 2*u, false)
-        txt("VENDRIX", x + 33*u + 1*u, y + 1*u, 165*u, 31*u, tocolor(0, 0, 0, 210), 1.08*u, "left", "bankgothic")
-        txt("VENDRIX", x + 33*u, y, 165*u, 31*u, C.gold, 1.08*u, "left", "bankgothic")
-        txt("RPG  //  GANG WAR", x + 35*u, y + 24*u, 155*u, 12*u, C.red, 0.48*u, "left", "default-bold")
-    end
+    -- Logo-only header: add your own transparent assets/logo.png. No text fallback.
+    image("logo", x + 1*u, y - 1*u, 202*u, 39*u)
     rect(x + 1*u, y + 40*u, w - 2*u, 2*u, C.goldDim)
 
     -- HEALTH: full row
