@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<meta>
+    <info
+        author="VENDRIX Development Team"
+        name="VENDRIX Account Admin"
+        type="script"
+        version="1.0.0"
+        description="ACL-protected administration of native MTA accounts."
+    />
+    <script src="server.lua" type="server" />
+</meta>
