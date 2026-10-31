@@ -1,50 +1,52 @@
--- VENDRIX // NEON COMBAT HUD
--- Native DX rendering only. No timers, CEF, DB calls or per-frame network traffic.
+-- VENDRIX // PNG-DRIVEN HUD
+-- DX only. PNG assets are optional; missing images use clean text fallbacks.
+-- Put all PNGs directly in assets/ (flat folder) using the names in assets/README.txt.
 
 local sx, sy = guiGetScreenSize()
-local pulse = 0
+local textureCache = {}
+local failedTextures = {}
 local errorReported = false
 
 local C = {
-    bg = tocolor(7, 9, 14, 232),
-    bg2 = tocolor(15, 18, 26, 245),
-    bg3 = tocolor(25, 29, 39, 245),
-    gold = tocolor(231, 188, 65, 255),
-    goldDim = tocolor(150, 113, 35, 235),
-    red = tocolor(255, 42, 75, 255),
-    redDim = tocolor(145, 25, 48, 240),
-    blue = tocolor(84, 176, 255, 255),
-    white = tocolor(246, 248, 252, 255),
-    muted = tocolor(137, 147, 164, 245),
-    dim = tocolor(63, 71, 86, 235),
-    green = tocolor(96, 226, 167, 255)
+    bg = tocolor(8, 10, 15, 238),
+    panel = tocolor(16, 19, 27, 245),
+    panel2 = tocolor(23, 27, 37, 245),
+    gold = tocolor(232, 190, 72, 255),
+    goldDim = tocolor(130, 99, 39, 220),
+    red = tocolor(255, 48, 76, 255),
+    blue = tocolor(93, 174, 255, 255),
+    white = tocolor(245, 247, 251, 255),
+    muted = tocolor(143, 151, 166, 245),
+    empty = tocolor(48, 55, 68, 230),
+    green = tocolor(99, 221, 163, 255)
 }
 
 local weaponNames = {
     [0]="UNARMED",[1]="BRASS KNUCKLES",[2]="GOLF CLUB",[3]="NIGHTSTICK",
     [4]="KNIFE",[5]="BASEBALL BAT",[6]="SHOVEL",[7]="POOL CUE",[8]="KATANA",
-    [9]="CHAINSAW",[10]="PURPLE DILDO",[11]="DILDO",[12]="VIBRATOR",
-    [13]="SILVER VIBRATOR",[14]="FLOWERS",[15]="CANE",[16]="GRENADE",
+    [9]="CHAINSAW",[10]="DILDO 1",[11]="DILDO 2",[12]="VIBRATOR 1",
+    [13]="VIBRATOR 2",[14]="FLOWERS",[15]="CANE",[16]="GRENADE",
     [17]="TEAR GAS",[18]="MOLOTOV",[22]="9MM",[23]="SILENCED 9MM",
     [24]="DESERT EAGLE",[25]="SHOTGUN",[26]="SAWED-OFF",[27]="SPAS-12",
     [28]="MICRO SMG",[29]="MP5",[30]="AK-47",[31]="M4",[32]="TEC-9",
     [33]="RIFLE",[34]="SNIPER RIFLE",[35]="ROCKET LAUNCHER",
     [36]="HEAT SEEKER",[37]="FLAMETHROWER",[38]="MINIGUN",
     [39]="SATCHEL CHARGE",[40]="DETONATOR",[41]="SPRAY CAN",
-    [42]="FIRE EXTINGUISHER",[43]="CAMERA"
+    [42]="FIRE EXTINGUISHER",[43]="CAMERA",[44]="NIGHT VISION",
+    [45]="THERMAL GOGGLES",[46]="PARACHUTE"
 }
 
 local function clamp(v, lo, hi)
     return math.max(lo, math.min(hi, tonumber(v) or lo))
 end
 
-local function text(value, x, y, w, h, color, scale, align, font)
-    dxDrawText(tostring(value), x, y, x + w, y + h, color, scale or 1,
-        font or "default-bold", align or "left", "center", false, false, false, true)
-end
-
 local function rect(x, y, w, h, color)
     dxDrawRectangle(math.floor(x), math.floor(y), math.max(1, math.floor(w)), math.max(1, math.floor(h)), color)
+end
+
+local function txt(value, x, y, w, h, color, scale, align, font)
+    dxDrawText(tostring(value), x, y, x + w, y + h, color, scale or 1,
+        font or "default-bold", align or "left", "center", false, false, false, true)
 end
 
 local function moneyString(value)
@@ -56,115 +58,114 @@ local function moneyString(value)
     end
 end
 
-local function bar(x, y, w, h, value, maximum, color)
-    rect(x, y, w, h, C.bg3)
-    local ratio = maximum > 0 and clamp(value / maximum, 0, 1) or 0
+local function image(name, x, y, w, h, color)
+    local path = "assets/" .. name .. ".png"
+    local texture = textureCache[path]
+    if not texture and not failedTextures[path] then
+        if fileExists(path) then
+            texture = dxCreateTexture(path, "argb", true, "clamp")
+            if texture then
+                textureCache[path] = texture
+            else
+                failedTextures[path] = true
+            end
+        else
+            failedTextures[path] = true
+        end
+    end
+    if texture then
+        dxDrawImage(x, y, w, h, texture, 0, 0, 0, color or tocolor(255, 255, 255, 255), false)
+        return true
+    end
+    return false
+end
+
+local function drawBar(x, y, w, h, value, maxValue, color)
+    rect(x, y, w, h, C.empty)
+    local ratio = maxValue > 0 and clamp(value / maxValue, 0, 1) or 0
     if ratio > 0 then
         rect(x, y, w * ratio, h, color)
         rect(x, y, w * ratio, 1, tocolor(255, 255, 255, 90))
     end
 end
 
-local function drawWeaponSilhouette(weapon, x, y, w, h, color)
-    -- Compact weapon pictogram drawn in DX; varies by weapon class.
-    local function line(x1, y1, x2, y2, width)
-        dxDrawLine(x1, y1, x2, y2, color, width or 2, false)
-    end
-    if weapon == 0 then
-        -- fists
-        rect(x + w * 0.28, y + h * 0.38, w * 0.22, h * 0.22, color)
-        rect(x + w * 0.51, y + h * 0.31, w * 0.20, h * 0.22, color)
-        line(x + w * 0.30, y + h * 0.62, x + w * 0.70, y + h * 0.62, 2)
-    elseif weapon == 4 or weapon == 8 or weapon == 9 then
-        line(x + w * 0.24, y + h * 0.70, x + w * 0.78, y + h * 0.22, 3)
-        line(x + w * 0.18, y + h * 0.64, x + w * 0.33, y + h * 0.80, 4)
-        line(x + w * 0.23, y + h * 0.69, x + w * 0.39, y + h * 0.85, 2)
-    elseif weapon == 25 or weapon == 26 or weapon == 27 or weapon == 33 or weapon == 34 then
-        line(x + w * 0.12, y + h * 0.43, x + w * 0.83, y + h * 0.43, 4)
-        line(x + w * 0.47, y + h * 0.43, x + w * 0.57, y + h * 0.68, 3)
-        line(x + w * 0.23, y + h * 0.43, x + w * 0.23, y + h * 0.60, 2)
-        line(x + w * 0.72, y + h * 0.37, x + w * 0.72, y + h * 0.49, 2)
-    else
-        -- pistol / SMG / rifle silhouette
-        line(x + w * 0.12, y + h * 0.40, x + w * 0.82, y + h * 0.40, 4)
-        line(x + w * 0.32, y + h * 0.40, x + w * 0.32, y + h * 0.28, 2)
-        line(x + w * 0.46, y + h * 0.40, x + w * 0.43, y + h * 0.72, 3)
-        line(x + w * 0.53, y + h * 0.40, x + w * 0.68, y + h * 0.40, 2)
-        if weapon == 30 or weapon == 31 or weapon == 29 or weapon == 28 then
-            line(x + w * 0.18, y + h * 0.34, x + w * 0.18, y + h * 0.49, 2)
-            line(x + w * 0.68, y + h * 0.40, x + w * 0.68, y + h * 0.55, 2)
+local function drawWanted(x, y, level)
+    for i = 1, 6 do
+        local px = x + (i - 1) * 19
+        if not image("wanted_star", px, y, 16, 16, i <= level and tocolor(255,255,255,255) or tocolor(100,105,115,125)) then
+            txt("★", px, y - 1, 17, 18, i <= level and C.red or C.empty, 0.8, "center")
         end
     end
 end
 
-local function drawStars(x, y, wanted)
-    for i = 1, 6 do
-        local active = i <= wanted
-        local color = active and C.red or tocolor(62, 69, 82, 220)
-        local scale = active and 1.08 or 0.92
-        text("★", x + (i - 1) * 18, y, 18, 22, color, scale, "center")
-    end
+local function drawWeaponFallback(weapon, x, y)
+    txt("WEAPON", x, y, 65, 28, C.gold, 0.57, "center")
 end
 
 local function drawHUD()
     if not isElement(localPlayer) or isPlayerMapVisible() then return end
     sx, sy = guiGetScreenSize()
 
-    local w, x, y = 354, sx - 374, 22
+    local scale = math.min(1, sx / 1100)
+    local w, h = 366 * scale, 190 * scale
+    local x, y = sx - w - 20 * scale, 20 * scale
     local health = clamp(getElementHealth(localPlayer), 0, 100)
     local armor = clamp(getPedArmor(localPlayer), 0, 100)
     local cash = getPlayerMoney(localPlayer)
     local wanted = clamp(getPlayerWantedLevel(localPlayer), 0, 6)
     local weapon = getPedWeapon(localPlayer) or 0
-    local slot = getPedWeaponSlot(localPlayer) or 0
     local clip = getPedAmmoInClip(localPlayer) or 0
     local totalAmmo = getPedTotalAmmo(localPlayer) or 0
-    local weaponLabel = weaponNames[weapon] or ("WEAPON " .. tostring(weapon))
-    local now = getTickCount()
-    pulse = (math.sin(now / 430) + 1) * 0.5
+    local unit = scale
 
-    -- Main frame, layered edge and red corner marker
-    rect(x, y, w, 198, C.bg)
-    rect(x, y, w, 2, C.gold)
-    rect(x + w - 3, y, 3, 198, C.red)
-    rect(x, y, 4, 198, C.goldDim)
-    rect(x + 9, y + 9, w - 22, 32, C.bg2)
-    text("V", x + 18, y + 8, 27, 34, C.red, 1.55, "center", "default-bold")
-    text("VENDRIX", x + 49, y + 8, 130, 34, C.gold, 1.08, "left")
-    text("COMBAT INTERFACE", x + 170, y + 9, 155, 32, C.muted, 0.70, "right")
-    rect(x + 12, y + 47, w - 27, 1, tocolor(105, 83, 40, 190))
+    -- Outer frame
+    rect(x, y, w, h, C.bg)
+    rect(x, y, w, 2 * unit, C.gold)
+    rect(x + w - 3 * unit, y, 3 * unit, h, C.red)
+    rect(x, y, 3 * unit, h, C.goldDim)
+    txt("V", x + 12*unit, y + 5*unit, 25*unit, 27*unit, C.red, 1.12*unit, "center")
+    txt("VENDRIX", x + 39*unit, y + 5*unit, 116*unit, 27*unit, C.gold, 0.9*unit)
+    txt("PLAYER STATUS", x + 166*unit, y + 5*unit, w - 180*unit, 27*unit, C.muted, 0.58*unit, "right")
+    rect(x + 12*unit, y + 34*unit, w - 24*unit, 1, C.goldDim)
 
-    -- Health / armor modules
-    text("HP", x + 15, y + 54, 31, 19, C.red, 0.78)
-    text(math.floor(health), x + 44, y + 51, 43, 24, C.white, 1.02)
-    text("%", x + 83, y + 56, 13, 18, C.muted, 0.68)
-    bar(x + 15, y + 78, 151, 7, health, 100, C.red)
-    rect(x + 15, y + 88, 151, 1, tocolor(255, 42, 75, 65))
+    -- Health
+    if not image("hp", x + 14*unit, y + 44*unit, 25*unit, 25*unit) then
+        txt("+", x + 14*unit, y + 43*unit, 25*unit, 25*unit, C.red, 1.2*unit, "center")
+    end
+    txt("HP", x + 45*unit, y + 41*unit, 35*unit, 17*unit, C.muted, 0.58*unit)
+    txt(math.floor(health) .. "%", x + 78*unit, y + 40*unit, 55*unit, 18*unit, C.white, 0.72*unit, "right")
+    drawBar(x + 45*unit, y + 60*unit, 88*unit, 5*unit, health, 100, C.red)
 
-    text("ARMOR", x + 184, y + 54, 54, 19, C.blue, 0.72)
-    text(math.floor(armor), x + 241, y + 51, 40, 24, C.white, 1.02)
-    bar(x + 184, y + 78, 145, 7, armor, 100, C.blue)
-    text("VITALS", x + 15, y + 98, 60, 17, C.muted, 0.62)
-    text("STABLE", x + 264, y + 98, 65, 17, health <= 25 and C.red or C.green, 0.62, "right")
+    -- Armor
+    if not image("armor", x + 150*unit, y + 44*unit, 25*unit, 25*unit) then
+        txt("A", x + 150*unit, y + 43*unit, 25*unit, 25*unit, C.blue, 0.8*unit, "center")
+    end
+    txt("ARMOR", x + 181*unit, y + 41*unit, 49*unit, 17*unit, C.muted, 0.55*unit)
+    txt(math.floor(armor) .. "%", x + 230*unit, y + 40*unit, 47*unit, 18*unit, C.white, 0.72*unit, "right")
+    drawBar(x + 181*unit, y + 60*unit, 96*unit, 5*unit, armor, 100, C.blue)
 
-    -- Cash and wanted level
-    rect(x + 10, y + 120, w - 22, 31, C.bg2)
-    text("$", x + 18, y + 120, 18, 31, C.gold, 1.05, "center")
-    text(moneyString(cash), x + 40, y + 120, 140, 31, C.gold, 0.91)
-    text("WANTED", x + 187, y + 120, 61, 31, C.muted, 0.62)
-    drawStars(x + 248, y + 124, wanted)
+    -- Money and wanted
+    rect(x + 12*unit, y + 76*unit, w - 24*unit, 33*unit, C.panel)
+    if not image("money", x + 18*unit, y + 81*unit, 23*unit, 23*unit) then
+        txt("$", x + 18*unit, y + 79*unit, 23*unit, 26*unit, C.gold, 0.9*unit, "center")
+    end
+    txt(moneyString(cash), x + 47*unit, y + 78*unit, 137*unit, 28*unit, C.gold, 0.78*unit)
+    txt("WANTED", x + 188*unit, y + 78*unit, 57*unit, 28*unit, C.muted, 0.52*unit)
+    drawWanted(x + 244*unit, y + 85*unit, wanted)
 
-    -- Weapon focus: large class silhouette and clear ammo readout
-    rect(x + 10, y + 158, w - 22, 31, C.bg2)
-    rect(x + 10, y + 158, 2, 31, C.gold)
-    drawWeaponSilhouette(weapon, x + 17, y + 159, 47, 28, C.gold)
-    text(weaponLabel, x + 70, y + 158, 143, 18, C.white, 0.72)
-    text("SLOT " .. tostring(slot), x + 70, y + 174, 65, 12, C.muted, 0.55)
-    text(tostring(clip), x + 216, y + 157, 53, 25, C.white, 1.03, "right")
-    text("/", x + 269, y + 158, 10, 24, C.gold, 0.85, "center")
-    text(tostring(totalAmmo), x + 278, y + 158, 42, 25, C.gold, 0.80, "left")
-    text("AMMO", x + 216, y + 177, 103, 10, C.muted, 0.52, "right")
-    rect(x + w - 14, y + 163, 2, 20, tocolor(255, 42, 75, 110 + math.floor(pulse * 120)))
+    -- Weapon card
+    rect(x + 12*unit, y + 117*unit, w - 24*unit, 61*unit, C.panel)
+    rect(x + 12*unit, y + 117*unit, 2*unit, 61*unit, C.gold)
+    local weaponFile = "weapon_" .. tostring(weapon)
+    if not image(weaponFile, x + 20*unit, y + 124*unit, 105*unit, 43*unit) then
+        drawWeaponFallback(weapon, x + 20*unit, y + 125*unit)
+    end
+    txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)), x + 132*unit, y + 120*unit, 131*unit, 22*unit, C.white, 0.66*unit)
+    txt("AMMO", x + 132*unit, y + 143*unit, 46*unit, 19*unit, C.muted, 0.52*unit)
+    if not image("ammo", x + 180*unit, y + 146*unit, 13*unit, 13*unit) then
+        txt("•", x + 180*unit, y + 143*unit, 13*unit, 18*unit, C.gold, 0.8*unit, "center")
+    end
+    txt(tostring(clip) .. " / " .. tostring(totalAmmo), x + 197*unit, y + 140*unit, 126*unit, 24*unit, C.gold, 0.73*unit, "right")
 end
 
 local function hideNativeHUD()
@@ -172,6 +173,14 @@ local function hideNativeHUD()
     for i = 1, #components do
         showPlayerHudComponent(components[i], false)
     end
+end
+
+local function releaseTextures()
+    for path, texture in pairs(textureCache) do
+        if isElement(texture) then destroyElement(texture) end
+        textureCache[path] = nil
+    end
+    failedTextures = {}
 end
 
 local function guardedRender()
@@ -184,4 +193,5 @@ end
 
 addEventHandler("onClientResourceStart", resourceRoot, hideNativeHUD)
 addEventHandler("onClientPlayerSpawn", localPlayer, hideNativeHUD)
+addEventHandler("onClientResourceStop", resourceRoot, releaseTextures)
 addEventHandler("onClientRender", root, guardedRender)
