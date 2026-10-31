@@ -62,6 +62,7 @@ local function showBrowser()
     end)
 end
 
+addEvent(UI_SUBMIT_EVENT, true)
 addEvent(SHOW_EVENT, true)
 addEventHandler(SHOW_EVENT, resourceRoot, showBrowser)
 
