@@ -16,7 +16,12 @@ local REQUEST_COOLDOWN_MS = 1200
 local attempts = {}
 local authenticated = {}
 
-local SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_ROTATION = 1481.0, -1771.0, 18.8, 0
+-- Default player spawn
+local SPAWN_X, SPAWN_Y, SPAWN_Z = 2029.132812, -1419.573242, 16.992188
+local SPAWN_ROTATION = 133.620
+local SPAWN_INTERIOR = 0
+local SPAWN_DIMENSION = 0
+local SPAWN_SKIN = 0
 
 local function sendResult(player, success, message, authenticatedNow)
     if isElement(player) then
@@ -59,7 +64,14 @@ local function finishAuthentication(player)
     setElementFrozen(player, false)
 
     if not isPedInVehicle(player) then
-        spawnPlayer(player, SPAWN_X, SPAWN_Y, SPAWN_Z, SPAWN_ROTATION, 0, 0, 0)
+        spawnPlayer(
+            player,
+            SPAWN_X, SPAWN_Y, SPAWN_Z,
+            SPAWN_ROTATION,
+            SPAWN_SKIN,
+            SPAWN_INTERIOR,
+            SPAWN_DIMENSION
+        )
     end
 
     fadeCamera(player, true)
