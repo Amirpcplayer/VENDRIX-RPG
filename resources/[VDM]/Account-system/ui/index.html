@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VENDRIX | Account Access</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="stage">
+    <div class="ambient ambient-red"></div>
+    <div class="ambient ambient-gold"></div>
+    <section class="login-shell" aria-label="VENDRIX account access">
+      <div class="brand-row">
+        <div class="brand-mark"><span>V</span><i></i></div>
+        <div class="brand-copy">
+          <div class="brand-name">VENDRIX<span>®</span></div>
+          <div class="brand-sub">ROLEPLAY <b>•</b> GANG WAR</div>
+        </div>
+        <div class="secure"><span class="secure-dot"></span> SECURE ACCESS</div>
+      </div>
+
+      <div class="rule"></div>
+      <div class="eyebrow"><span></span> THE CITY IS YOURS <span></span></div>
+      <h1>به دنیای <em>VENDRIX</em> خوش آمدی</h1>
+      <p class="intro">برای شروع ماجراجویی، وارد حساب خود شو یا یک حساب جدید بساز.</p>
+
+      <div class="tabs" role="tablist">
+        <button class="tab active" id="loginTab" type="button" role="tab" aria-selected="true">ورود به حساب</button>
+        <button class="tab" id="registerTab" type="button" role="tab" aria-selected="false">ساخت حساب</button>
+        <span class="tab-indicator"></span>
+      </div>
+
+      <form id="authForm" autocomplete="off">
+        <label for="username">نام کاربری <span>USERNAME</span></label>
+        <div class="field">
+          <span class="field-icon user-icon">◈</span>
+          <input id="username" name="username" type="text" maxlength="24" minlength="3"
+            placeholder="نام کاربری خود را وارد کن" autocomplete="off" spellcheck="false">
+          <span class="field-line"></span>
+        </div>
+
+        <label for="password">رمز عبور <span>PASSWORD</span></label>
+        <div class="field">
+          <span class="field-icon lock-icon">◇</span>
+          <input id="password" name="password" type="password" maxlength="64" minlength="8"
+            placeholder="حداقل ۸ نویسه" autocomplete="new-password">
+          <button class="eye" id="togglePassword" type="button" aria-label="نمایش رمز عبور">◉</button>
+          <span class="field-line"></span>
+        </div>
+
+        <button class="submit" id="submitButton" type="submit">
+          <span class="submit-text">ورود به شهر</span><span class="submit-arrow">←</span>
+          <span class="button-glint"></span>
+        </button>
+      </form>
+
+      <div class="status" id="status" role="status" aria-live="polite">
+        <span class="status-mark">●</span>
+        <span id="statusText">اطلاعات حساب خود را وارد کن.</span>
+      </div>
+
+      <div class="bottom-row">
+        <span><i class="tiny-shield">◆</i> سیستم احراز هویت امن</span>
+        <span class="version">VENDRIX ACCESS <b>01</b></span>
+      </div>
+    </section>
+    <div class="side-label">VENDRIX ROLEPLAY <span>—</span> EST. 2026</div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
