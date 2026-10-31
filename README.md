@@ -11,6 +11,9 @@ resources/
     │   ├── meta.xml
     │   └── server.lua
     ├── Account-system/
+    │   ├── meta.xml
+    │   ├── server.lua
+    │   ├── client.lua
     │   └── README.md
     └── Inventory/
         └── README.md
@@ -19,24 +22,26 @@ resources/
 ## Current status
 
 - **Core:** minimal server-side bootstrap resource.
-- **Account-system:** planned; not yet an MTA resource.
+- **Account-system:** initial registration/login flow using native MTA account storage.
 - **Inventory:** planned; not yet an MTA resource.
 
 ## Install
 
-Copy the `resources/[VDM]` directory into:
+Copy the repository's `resources/[VDM]` directory into:
 
 `D:\\VENDRIX RPG\\MTA\\server\\mods\\deathmatch\\resources\\`
 
-Then start the Core resource from the MTA server console:
+Then run these commands in the MTA server console:
 
 ```text
 refresh
-start Core
+start Account-system
 ```
 
-Expected log entry:
+The Core resource may remain running. After the account resource starts, reconnect to the server to test the login/register panel.
 
-`[VENDRIX] Core started successfully.`
+## Important limitations
 
-Do not store passwords, database credentials, or private tokens in this repository.
+The current account system uses MTA's native account storage and a temporary default spawn position. Character creation, persistent RPG data, database integration, and final spawn selection are not implemented yet.
+
+Never store passwords, database credentials, or private tokens in this repository.
