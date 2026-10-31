@@ -11,6 +11,7 @@
     <div class="backdrop"></div>
     <div class="backdrop-shade"></div>
     <div class="ambient ambient-orange"></div>
+    <button id="musicToggle" class="music-toggle" type="button" aria-label="قطع موسیقی" aria-pressed="false"><span class="music-icon">♫</span><span class="music-label">موسیقی خاموش</span></button>
     <section class="login-shell" aria-label="VENDRIX account access">
       <div class="brand-row">
         <div class="brand-mark"><span>V</span><i></i></div>
@@ -63,12 +64,11 @@
 
       <div class="bottom-row">
         <span><i class="tiny-shield">◆</i> سیستم احراز هویت امن</span>
-        <button id="musicToggle" class="music-toggle" type="button" aria-pressed="false">♫ <span>موسیقی خاموش</span></button>
         <span class="version">VENDRIX ACCESS <b>01</b></span>
       </div>
     </section>
     <div class="side-label">VENDRIX ROLEPLAY <span>—</span> EST. 2026</div>
-    <audio id="backgroundMusic" src="background.mp3" loop preload="auto"></audio>
+    <audio id="backgroundMusic" src="background.mp3" loop preload="auto" autoplay></audio>
   </main>
   <script src="app.js"></script>
 </body>
