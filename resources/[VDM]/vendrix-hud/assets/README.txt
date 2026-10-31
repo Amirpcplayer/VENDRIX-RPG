@@ -11,6 +11,9 @@ IMPORTANT:
 - Weapon PNG filenames use GTA/MTA weapon IDs, so the correct icon changes automatically with the player's current weapon.
 - Suggested sizes are source image dimensions; HUD scales them automatically.
 
+BRANDING LOGO
+logo.png            512 x 96      Your own transparent VENDRIX logo; displayed instead of text
+
 CORE ICONS
 hp.png             64 x 64       Heart / health
 armor.png          64 x 64       Armor / shield
@@ -66,7 +69,8 @@ weapon_45.png      256 x 96      Thermal goggles
 weapon_46.png      256 x 96      Parachute
 
 NOTES
-- You only need to add icons you want to customize; missing files use a text fallback.
+- Add logo.png to show your own image instead of a text header. If it is missing, the header area stays blank.
+- You only need to add the other icons you want to customize; missing icons use a text fallback.
 - All weapon PNGs should face to the right and have empty transparent padding around the weapon.
 - Do not include a background panel in the PNG; the HUD draws its own black/gold panel.
 - When adding PNGs locally, run "refresh" then "restart vendrix-hud" in the MTA server console.
