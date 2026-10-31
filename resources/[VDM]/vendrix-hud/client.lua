@@ -91,13 +91,6 @@ local function drawRadarFrame()
 end
 
 local function renderHUD()
-    -- Always-visible marker confirms that the client render handler is running.
-    local screenX = guiGetScreenSize()
-    dxDrawRectangle(screenX - 255, 56, 235, 34, tocolor(8, 10, 15, 235), true)
-    dxDrawRectangle(screenX - 255, 56, 3, 34, tocolor(245, 35, 65, 255), true)
-    dxDrawText("VENDRIX HUD CLIENT ACTIVE", screenX - 245, 56, screenX - 28, 90,
-        tocolor(212, 175, 55, 255), 1, "default-bold", "left", "center", false, false, true, true)
-
     if not isElement(localPlayer) then
         return
     end
@@ -133,6 +126,9 @@ local function renderHUD()
     dxDrawRectangle(x, y, w, h, panel)
     dxDrawRectangle(x, y, w, 2, panelEdge)
     dxDrawRectangle(x, y, 3, h, red)
+    dxDrawRectangle(x + 12, y + 9, 4, 13, red)
+    drawText("VENDRIX  /  وضعیت بازیکن", x + 23, y + 6, 205, 19, gold, 0.82, "left")
+    drawText("LIVE", x + w - 55, y + 6, 39, 19, muted, 0.72, "right")
 
     drawText("سلامتی", x + 13, y + 10, 54, 18, white, 0.85, "left")
     drawText(math.floor(health) .. "%", x + w - 49, y + 10, 35, 18, white, 0.85, "right")
@@ -152,7 +148,7 @@ local function renderHUD()
     -- Online indicator, separate from the money line for quick readability.
     dxDrawRectangle(sx - 151, 18, 131, 28, panel)
     dxDrawRectangle(sx - 151, 18, 2, 28, red)
-    dxDrawCircle(sx - 136, 32, 3, 0, 360, tocolor(90, 230, 145, 255), tocolor(90, 230, 145, 255), 12)
+    dxDrawRectangle(sx - 139, 29, 6, 6, tocolor(90, 230, 145, 255))
     drawText("آنلاین  " .. tostring(onlineCount), sx - 126, 19, 99, 26, white, 0.82, "left")
 end
 
@@ -176,9 +172,5 @@ local function renderHUDGuarded()
         outputChatBox("[VENDRIX HUD] خطای رندر؛ F8 را برای جزئیات بررسی کن.", 255, 60, 60)
     end
 end
-
-addEventHandler("onClientResourceStart", resourceRoot, function()
-    outputChatBox("[VENDRIX HUD] نسخه سفارشی فعال شد.", 212, 175, 55)
-end)
 
 addEventHandler("onClientRender", root, renderHUDGuarded)
