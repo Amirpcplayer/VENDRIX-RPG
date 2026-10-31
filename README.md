@@ -32,7 +32,7 @@ Then start the Core resource from the MTA server console:
 
 ```text
 refresh
-start [VDM]/Core
+start Core
 ```
 
 Expected log entry:
