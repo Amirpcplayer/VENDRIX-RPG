@@ -8,9 +8,6 @@ local failedTextures = {}
 local errorReported = false
 
 local C = {
-    bg = tocolor(8, 10, 15, 238),
-    panel = tocolor(16, 19, 27, 245),
-    panel2 = tocolor(23, 27, 37, 245),
     gold = tocolor(232, 190, 72, 255),
     goldDim = tocolor(130, 99, 39, 220),
     red = tocolor(255, 48, 76, 255),
@@ -118,15 +115,10 @@ local function drawHUD()
     local totalAmmo = getPedTotalAmmo(localPlayer) or 0
     local unit = scale
 
-    -- Outer frame
-    rect(x, y, w, h, C.bg)
-    rect(x, y, w, 2 * unit, C.gold)
-    rect(x + w - 3 * unit, y, 3 * unit, h, C.red)
-    rect(x, y, 3 * unit, h, C.goldDim)
+    -- Transparent HUD: no panel, frame, or background fill.
     txt("V", x + 12*unit, y + 5*unit, 25*unit, 27*unit, C.red, 1.12*unit, "center")
     txt("VENDRIX", x + 39*unit, y + 5*unit, 116*unit, 27*unit, C.gold, 0.9*unit)
     txt("PLAYER STATUS", x + 166*unit, y + 5*unit, w - 180*unit, 27*unit, C.muted, 0.58*unit, "right")
-    rect(x + 12*unit, y + 34*unit, w - 24*unit, 1, C.goldDim)
 
     -- Health
     if not image("hp", x + 14*unit, y + 44*unit, 25*unit, 25*unit) then
@@ -145,7 +137,6 @@ local function drawHUD()
     drawBar(x + 181*unit, y + 60*unit, 96*unit, 5*unit, armor, 100, C.blue)
 
     -- Money and wanted
-    rect(x + 12*unit, y + 76*unit, w - 24*unit, 33*unit, C.panel)
     if not image("money", x + 18*unit, y + 81*unit, 23*unit, 23*unit) then
         txt("$", x + 18*unit, y + 79*unit, 23*unit, 26*unit, C.gold, 0.9*unit, "center")
     end
@@ -154,8 +145,6 @@ local function drawHUD()
     drawWanted(x + 244*unit, y + 85*unit, wanted)
 
     -- Weapon card
-    rect(x + 12*unit, y + 117*unit, w - 24*unit, 61*unit, C.panel)
-    rect(x + 12*unit, y + 117*unit, 2*unit, 61*unit, C.gold)
     local weaponFile = "weapon_" .. tostring(weapon)
     if not image(weaponFile, x + 20*unit, y + 124*unit, 105*unit, 43*unit) then
         drawWeaponFallback(weapon, x + 20*unit, y + 125*unit)
