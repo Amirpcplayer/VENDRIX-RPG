@@ -94,12 +94,8 @@ local function renderHUD()
     if not isElement(localPlayer) or isPlayerMapVisible() then
         return
     end
-    if getElementAlpha(localPlayer) < 250 or isElementFrozen(localPlayer) then
-        return
-    end
-    if not getPlayerHudComponentVisible("radar") then
-        return
-    end
+    -- Do not hide the entire custom HUD because another resource temporarily
+    -- freezes/fades the player or hides the native radar component.
 
     sx, sy = guiGetScreenSize()
     local health = clamp(getElementHealth(localPlayer), 0, 100)
