@@ -4,9 +4,12 @@
         author="VENDRIX Development Team"
         name="VENDRIX Account System"
         type="script"
-        version="0.1.0"
-        description="Server-validated account registration and login for VENDRIX RPG."
+        version="0.2.0"
+        description="Server-validated VENDRIX account system with a custom CEF interface."
     />
     <script src="server.lua" type="server" />
     <script src="client.lua" type="client" cache="false" />
+    <file src="ui/index.html" />
+    <file src="ui/style.css" />
+    <file src="ui/app.js" />
 </meta>
