@@ -167,16 +167,12 @@ local function drawHUD()
     txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)),
         x, rowY + 5*u, w - 2*u, 17*u, C.white, 0.66*u, "right")
 
-    local iconSize = 18*u
-    local iconY = rowY + 27*u
+    local iconSize = 23*u
+    local iconY = rowY + 25*u
     local weaponIconX = x + w - iconSize
-    local ammoTextW = 82*u
-    local ammoTextX = weaponIconX - 7*u - ammoTextW
-    local ammoIconX = ammoTextX - iconSize - 7*u
+    local ammoTextW = 88*u
+    local ammoTextX = weaponIconX - 9*u - ammoTextW
 
-    if not image("ammo", ammoIconX, iconY, iconSize, iconSize) then
-        txt("A", ammoIconX, iconY, iconSize, iconSize, C.gold, 0.65*u, "center")
-    end
     txt(tostring(clip) .. " / " .. tostring(totalAmmo),
         ammoTextX, iconY - 1*u, ammoTextW, iconSize + 2*u, C.gold, 0.74*u, "right")
 
