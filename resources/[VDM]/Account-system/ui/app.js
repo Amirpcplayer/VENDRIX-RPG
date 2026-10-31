@@ -14,8 +14,6 @@
   const togglePassword = $("togglePassword");
   const music = $("backgroundMusic");
   const musicToggle = $("musicToggle");
-  const musicVolume = $("musicVolume");
-  const volumeValue = $("volumeValue");
   let mode = "login";
   let busy = false;
 
@@ -58,7 +56,6 @@
       return;
     }
     try {
-      music.volume = Number(musicVolume.value) / 100;
       await music.play();
       updateMusicButton(true);
     } catch (_) {
@@ -68,18 +65,6 @@
   }
 
   musicToggle.addEventListener("click", toggleMusic);
-  musicVolume.addEventListener("input", () => {
-    const volume = Math.max(0, Math.min(100, Number(musicVolume.value) || 0));
-    music.volume = volume / 100;
-    volumeValue.value = volume + "٪";
-    volumeValue.textContent = volume + "٪";
-    if (volume > 0 && music.paused) {
-      music.play().then(() => updateMusicButton(true)).catch(() => updateMusicButton(false));
-    } else if (volume === 0 && !music.paused) {
-      music.pause();
-      updateMusicButton(false);
-    }
-  });
   music.addEventListener("ended", () => updateMusicButton(false));
   music.addEventListener("pause", () => updateMusicButton(false));
   music.addEventListener("play", () => updateMusicButton(true));
