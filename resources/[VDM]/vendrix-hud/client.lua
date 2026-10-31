@@ -3,7 +3,6 @@
 
 local sx, sy = guiGetScreenSize()
 local onlineCount = 0
-local lastHealth, lastArmor, lastMoney = -1, -1, -1
 local gold = tocolor(212, 175, 55, 255)
 local red = tocolor(245, 35, 65, 255)
 local white = tocolor(245, 245, 245, 245)
@@ -28,6 +27,19 @@ end
 local function drawText(text, x, y, w, h, color, scale, align)
     dxDrawText(tostring(text), x, y, x + w, y + h, color, scale or 1,
         "default-bold", align or "left", "center", false, false, false, true)
+end
+
+local function formatMoney(value)
+    local text = tostring(math.floor(tonumber(value) or 0))
+    local formatted = text
+    while true do
+        local updated, count = formatted:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
+        formatted = updated
+        if count == 0 then
+            break
+        end
+    end
+    return formatted
 end
 
 local function drawBar(x, y, w, h, value, maximum, color)
@@ -125,7 +137,7 @@ local function renderHUD()
     drawBar(x + 73, y + 39, w - 132, 8, armor, 100, tocolor(75, 160, 225, 255))
 
     dxDrawRectangle(x + 12, y + 63, w - 24, 1, tocolor(255,255,255,35))
-    drawText("$" .. string.format("%,d", money), x + 13, y + 66, 154, 29, gold, 1.08, "left")
+    drawText("$" .. formatMoney(money), x + 13, y + 66, 154, 29, gold, 1.08, "left")
     drawText(weapon, x + 165, y + 66, w - 180, 29, muted, 0.78, "right")
 
     dxDrawRectangle(x + 12, y + h - 12, w - 24, 2, tocolor(255,255,255,25))
