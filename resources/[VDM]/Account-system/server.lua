@@ -177,6 +177,38 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
     finishAuthentication(player)
 end)
 
+
+-- Use the username registered in the native VENDRIX account system for normal T chat.
+-- Only replace public chat (type 0); team/action chat keeps its existing MTA behavior.
+addEventHandler("onPlayerChat", root, function(message, messageType)
+    if messageType ~= 0 then
+        return
+    end
+
+    cancelEvent()
+
+    if not authenticated[source] then
+        return
+    end
+
+    local account = getPlayerAccount(source)
+    if not account or isGuestAccount(account) then
+        return
+    end
+
+    local accountName = getAccountName(account)
+    if type(accountName) ~= "string" or accountName == "" then
+        accountName = "Player"
+    end
+
+    if type(message) ~= "string" then
+        return
+    end
+
+    -- Disable color-code parsing so player input cannot inject chat colors.
+    outputChatBox(accountName .. ": " .. message, root, 245, 247, 251, false)
+end)
+
 addEventHandler("onPlayerSpawn", root, function()
     if not authenticated[source] then
         cancelEvent()
