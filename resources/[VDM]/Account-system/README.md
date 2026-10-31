@@ -2,11 +2,19 @@
 
 ## Features
 - Custom HTML/CSS/JavaScript CEF login and registration interface.
-- Black, gold, and neon-red VENDRIX styling.
+- Orange/black VENDRIX underworld theme with a custom full-screen background.
+- Optional looping background music with an in-panel toggle.
 - CEF browser is created when authentication UI is needed and destroyed after successful authentication.
 - No external fonts, remote assets, or third-party JS dependencies.
 - Server-side username/password validation and native MTA account storage.
 - Temporary lock after repeated failed login attempts.
+
+## Custom media
+Place your own files in this folder:
+- `ui/background.jpg` — background image (JPG).
+- `ui/background.mp3` — background music (MP3).
+
+Keep the exact filenames. The image is cover-scaled to fill the screen and shaded so the login panel remains readable. Music loops at low volume and can be switched on/off with the music button. Browser autoplay can be blocked until the player clicks the music button.
 
 ## Account rules
 - Username: 3–24 ASCII letters, digits, or underscores.
