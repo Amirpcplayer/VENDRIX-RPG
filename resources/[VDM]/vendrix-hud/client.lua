@@ -91,7 +91,10 @@ local function drawRadarFrame()
 end
 
 local function renderHUD()
-    if not isElement(localPlayer) or isPlayerMapVisible() then
+    if not isElement(localPlayer) then
+        return
+    end
+    if type(isPlayerMapVisible) == "function" and isPlayerMapVisible() then
         return
     end
     -- Do not hide the entire custom HUD because another resource temporarily
@@ -157,4 +160,18 @@ addEventHandler("onClientResourceStart", resourceRoot, function()
     triggerServerEvent("vendrix:hud:sync", resourceRoot)
 end)
 
-addEventHandler("onClientRender", root, renderHUD)
+local hudErrorReported = false
+local function renderHUDGuarded()
+    local ok, err = pcall(renderHUD)
+    if not ok and not hudErrorReported then
+        hudErrorReported = true
+        outputDebugString("[vendrix-hud] Render error: " .. tostring(err), 1)
+        outputChatBox("[VENDRIX HUD] خطای رندر؛ F8 را برای جزئیات بررسی کن.", 255, 60, 60)
+    end
+end
+
+addEventHandler("onClientResourceStart", resourceRoot, function()
+    outputChatBox("[VENDRIX HUD] نسخه سفارشی فعال شد.", 212, 175, 55)
+end)
+
+addEventHandler("onClientRender", root, renderHUDGuarded)
