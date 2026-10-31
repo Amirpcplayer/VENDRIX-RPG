@@ -8,8 +8,9 @@
 </head>
 <body>
   <main class="stage">
-    <div class="ambient ambient-red"></div>
-    <div class="ambient ambient-gold"></div>
+    <div class="backdrop"></div>
+    <div class="backdrop-shade"></div>
+    <div class="ambient ambient-orange"></div>
     <section class="login-shell" aria-label="VENDRIX account access">
       <div class="brand-row">
         <div class="brand-mark"><span>V</span><i></i></div>
@@ -21,9 +22,9 @@
       </div>
 
       <div class="rule"></div>
-      <div class="eyebrow"><span></span> THE CITY IS YOURS <span></span></div>
+      <div class="eyebrow"><span></span> ENTER THE UNDERWORLD <span></span></div>
       <h1>به دنیای <em>VENDRIX</em> خوش آمدی</h1>
-      <p class="intro">برای شروع ماجراجویی، وارد حساب خود شو یا یک حساب جدید بساز.</p>
+      <p class="intro">شهر منتظر توست؛ وارد حساب شو یا ماجراجویی خودت را آغاز کن.</p>
 
       <div class="tabs" role="tablist">
         <button class="tab active" id="loginTab" type="button" role="tab" aria-selected="true">ورود به حساب</button>
@@ -34,7 +35,7 @@
       <form id="authForm" autocomplete="off">
         <label for="username">نام کاربری <span>USERNAME</span></label>
         <div class="field">
-          <span class="field-icon user-icon">◈</span>
+          <span class="field-icon">◈</span>
           <input id="username" name="username" type="text" maxlength="24" minlength="3"
             placeholder="نام کاربری خود را وارد کن" autocomplete="off" spellcheck="false">
           <span class="field-line"></span>
@@ -42,7 +43,7 @@
 
         <label for="password">رمز عبور <span>PASSWORD</span></label>
         <div class="field">
-          <span class="field-icon lock-icon">◇</span>
+          <span class="field-icon">◇</span>
           <input id="password" name="password" type="password" maxlength="64" minlength="8"
             placeholder="حداقل ۸ نویسه" autocomplete="new-password">
           <button class="eye" id="togglePassword" type="button" aria-label="نمایش رمز عبور">◉</button>
@@ -62,10 +63,12 @@
 
       <div class="bottom-row">
         <span><i class="tiny-shield">◆</i> سیستم احراز هویت امن</span>
+        <button id="musicToggle" class="music-toggle" type="button" aria-pressed="false">♫ <span>موسیقی خاموش</span></button>
         <span class="version">VENDRIX ACCESS <b>01</b></span>
       </div>
     </section>
     <div class="side-label">VENDRIX ROLEPLAY <span>—</span> EST. 2026</div>
+    <audio id="backgroundMusic" src="background.mp3" loop preload="auto"></audio>
   </main>
   <script src="app.js"></script>
 </body>
