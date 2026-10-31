@@ -1,43 +1,44 @@
--- VENDRIX Signature HUD
--- Native DX rendering: no CEF, per-frame database access, or repeating timers.
+-- VENDRIX HUD | compact top-left combat status
+-- Native DX only: no CEF, timers, database calls, or per-frame element-data writes.
 
 local sx, sy = guiGetScreenSize()
-local onlineCount = 0
-local gold = tocolor(212, 175, 55, 255)
-local red = tocolor(245, 35, 65, 255)
+local wantedLevel = 0
+local gold = tocolor(212, 175, 55, 245)
+local red = tocolor(245, 35, 65, 245)
 local white = tocolor(245, 245, 245, 245)
-local muted = tocolor(180, 184, 194, 235)
-local panel = tocolor(8, 10, 15, 220)
-local panelEdge = tocolor(212, 175, 55, 190)
-local barBack = tocolor(55, 58, 66, 235)
+local muted = tocolor(177, 184, 197, 235)
+local panel = tocolor(8, 10, 15, 218)
+local edge = tocolor(212, 175, 55, 185)
+local barBack = tocolor(54, 58, 68, 235)
+local blue = tocolor(83, 167, 235, 245)
 
 local weaponNames = {
-    [0] = "بدون اسلحه", [1] = "پنجه", [2] = "چوب بیسبال", [3] = "چماق",
-    [4] = "چاقوی بازی", [5] = "چوب بیسبال", [6] = "بیل", [7] = "چوب بیلیارد",
-    [8] = "کاتانا", [9] = "اره", [22] = "کلت", [23] = "کلت صداخفه‌کن",
-    [24] = "دیزرت ایگل", [25] = "شاتگان", [26] = "شاتگان کوتاه",
-    [27] = "شاتگان جنگی", [28] = "اوزی", [29] = "MP5", [30] = "AK-47",
-    [31] = "M4", [32] = "تک‌دستی", [33] = "رایفل", [34] = "اسنایپر"
+    [0] = "FISTS", [1] = "BRASS", [2] = "GOLF", [3] = "NIGHTSTICK",
+    [4] = "KNIFE", [5] = "BAT", [6] = "SHOVEL", [7] = "POOL",
+    [8] = "KATANA", [9] = "CHAINSAW", [22] = "9MM", [23] = "SILENCED",
+    [24] = "DEAGLE", [25] = "SHOTGUN", [26] = "SAWED-OFF",
+    [27] = "SPAS", [28] = "UZI", [29] = "MP5", [30] = "AK-47",
+    [31] = "M4", [32] = "TEC-9", [33] = "RIFLE", [34] = "SNIPER",
+    [35] = "ROCKET", [36] = "HS ROCKET", [37] = "FLAME", [38] = "MINIGUN",
+    [16] = "GRENADE", [17] = "TEAR GAS", [18] = "MOLOTOV",
+    [39] = "SATCHEL", [41] = "SPRAY", [42] = "EXTINGUISHER", [43] = "CAMERA"
 }
 
 local function clamp(value, minimum, maximum)
     return math.max(minimum, math.min(maximum, value))
 end
 
-local function drawText(text, x, y, w, h, color, scale, align)
+local function drawText(text, x, y, w, h, color, scale, align, font)
     dxDrawText(tostring(text), x, y, x + w, y + h, color, scale or 1,
-        "default-bold", align or "left", "center", false, false, false, true)
+        font or "default-bold", align or "left", "center", false, false, false, true)
 end
 
 local function formatMoney(value)
-    local text = tostring(math.floor(tonumber(value) or 0))
-    local formatted = text
+    local formatted = tostring(math.floor(tonumber(value) or 0))
     while true do
         local updated, count = formatted:gsub("^(-?%d+)(%d%d%d)", "%1,%2")
         formatted = updated
-        if count == 0 then
-            break
-        end
+        if count == 0 then break end
     end
     return formatted
 end
@@ -45,123 +46,91 @@ end
 local function drawBar(x, y, w, h, value, maximum, color)
     dxDrawRectangle(x, y, w, h, barBack)
     local ratio = maximum > 0 and clamp(value / maximum, 0, 1) or 0
-    if ratio > 0 then
-        dxDrawRectangle(x, y, w * ratio, h, color)
-    end
+    if ratio > 0 then dxDrawRectangle(x, y, w * ratio, h, color) end
 end
 
-local function getGangName(player)
-    local keys = {"gangName", "gang", "factionName", "groupName"}
-    for i = 1, #keys do
-        local value = getElementData(player, keys[i])
-        if type(value) == "string" and value ~= "" then
-            return value
-        end
-    end
-    return "بدون گنگ"
+local function getWeaponLabel(weapon)
+    return weaponNames[weapon] or ("W" .. tostring(weapon))
 end
 
-local function getPlayerId(player)
-    local id = getElementData(player, "id")
-        or getElementData(player, "player:id")
-        or getElementData(player, "vendrix:sessionID")
-    return id and tostring(id) or "--"
-end
-
-local function getWeaponLabel(player)
-    local weapon = getPedWeapon(player)
-    local name = weaponNames[weapon] or ("اسلحه " .. tostring(weapon))
-    local ammo = getPedTotalAmmo(player)
-    if weapon == 0 or ammo <= 0 then
-        return name
-    end
-    return name .. "  |  " .. tostring(ammo)
-end
-
-local function drawRadarFrame()
-    -- Frame sits just outside the default GTA radar; the native radar remains enabled.
-    local x, y, w, h = 17, sy - 166, 166, 126
-    dxDrawRectangle(x, y, w, 2, panelEdge)
-    dxDrawRectangle(x, y + h - 2, w, 2, panelEdge)
-    dxDrawRectangle(x, y, 2, h, red)
-    dxDrawRectangle(x + w - 2, y, 2, h, panelEdge)
-    dxDrawRectangle(x + 7, y + 7, 48, 3, red)
-    dxDrawText("VENDRIX  /  GPS", x + 8, y - 18, x + w, y + 2,
-        gold, 0.8, "default-bold", "left", "center", false, false, false, true)
-end
-
-local function renderHUD()
-    if not isElement(localPlayer) then
-        return
-    end
-    if type(isPlayerMapVisible) == "function" and isPlayerMapVisible() then
-        return
-    end
-    -- Do not hide the entire custom HUD because another resource temporarily
-    -- freezes/fades the player or hides the native radar component.
-
-    sx, sy = guiGetScreenSize()
+local function drawStatusPanel()
+    local x, y, w = 20, 20, 286
     local health = clamp(getElementHealth(localPlayer), 0, 100)
     local armor = clamp(getPedArmor(localPlayer), 0, 100)
     local money = getPlayerMoney(localPlayer)
-    local id = getPlayerId(localPlayer)
-    local gang = getGangName(localPlayer)
-    local weapon = getWeaponLabel(localPlayer)
+    wantedLevel = clamp(getPlayerWantedLevel(localPlayer), 0, 6)
 
-    drawRadarFrame()
+    -- Header
+    dxDrawRectangle(x, y, w, 31, panel)
+    dxDrawRectangle(x, y, 3, 31, red)
+    dxDrawRectangle(x + 3, y, w - 3, 1, edge)
+    drawText("VENDRIX", x + 12, y + 1, 118, 29, gold, 1.0, "left")
+    drawText("PLAYER STATUS", x + 145, y + 1, w - 157, 29, muted, 0.72, "right")
 
-    -- Left identity strip, positioned above the native radar to avoid covering gameplay.
-    local leftX, leftY, leftW, leftH = 18, sy - 211, 292, 37
-    dxDrawRectangle(leftX, leftY, leftW, leftH, panel)
-    dxDrawRectangle(leftX, leftY, 3, leftH, red)
-    dxDrawRectangle(leftX + 3, leftY, leftW - 3, 1, panelEdge)
-    drawText("V", leftX + 10, leftY + 2, 23, 31, red, 1.25, "center")
-    drawText("ID  " .. id, leftX + 40, leftY + 2, 62, 31, gold, 0.95, "left")
-    dxDrawRectangle(leftX + 107, leftY + 8, 1, 21, tocolor(255,255,255,50))
-    drawText(gang, leftX + 117, leftY + 2, leftW - 125, 31, white, 0.88, "left")
+    -- Health and armor rows
+    local rowY = y + 39
+    dxDrawRectangle(x, rowY, w, 31, panel)
+    drawText("♥", x + 9, rowY, 24, 30, red, 1.12, "center")
+    drawText(math.floor(health) .. " HP", x + 38, rowY, 64, 30, white, 0.9)
+    drawBar(x + 108, rowY + 12, 112, 7, health, 100, red)
+    drawText(math.floor(health) .. "%", x + 224, rowY, 51, 30, white, 0.78, "right")
 
-    -- Bottom-right status card.
-    local w, h = 318, 112
-    local x, y = sx - w - 20, sy - h - 22
-    dxDrawRectangle(x, y, w, h, panel)
-    dxDrawRectangle(x, y, w, 2, panelEdge)
-    dxDrawRectangle(x, y, 3, h, red)
-    dxDrawRectangle(x + 12, y + 9, 4, 13, red)
-    drawText("VENDRIX  /  وضعیت بازیکن", x + 23, y + 6, 205, 19, gold, 0.82, "left")
-    drawText("LIVE", x + w - 55, y + 6, 39, 19, muted, 0.72, "right")
+    rowY = rowY + 35
+    dxDrawRectangle(x, rowY, w, 31, panel)
+    -- Compact shield glyph made from DX rectangles; avoids font-dependent icon assets.
+    dxDrawRectangle(x + 15, rowY + 8, 12, 13, blue)
+    dxDrawRectangle(x + 18, rowY + 5, 6, 3, blue)
+    dxDrawRectangle(x + 18, rowY + 21, 6, 3, blue)
+    drawText(math.floor(armor) .. " ARMOR", x + 38, rowY, 64, 30, white, 0.82)
+    drawBar(x + 108, rowY + 12, 112, 7, armor, 100, blue)
+    drawText(math.floor(armor) .. "%", x + 224, rowY, 51, 30, white, 0.78, "right")
 
-    drawText("سلامتی", x + 13, y + 10, 54, 18, white, 0.85, "left")
-    drawText(math.floor(health) .. "%", x + w - 49, y + 10, 35, 18, white, 0.85, "right")
-    drawBar(x + 73, y + 15, w - 132, 8, health, 100, red)
+    -- Cash and wanted level
+    rowY = rowY + 35
+    dxDrawRectangle(x, rowY, w, 31, panel)
+    drawText("$", x + 10, rowY, 21, 30, gold, 1.15, "center")
+    drawText(formatMoney(money), x + 36, rowY, 122, 30, gold, 0.95)
+    drawText("WANTED", x + 164, rowY, 59, 30, muted, 0.68, "right")
+    for star = 1, 6 do
+        local color = star <= wantedLevel and red or tocolor(80, 83, 94, 220)
+        drawText("★", x + 225 + ((star - 1) * 9), rowY, 10, 30, color, 0.72, "center")
+    end
 
-    drawText("زره", x + 13, y + 34, 54, 18, white, 0.85, "left")
-    drawText(math.floor(armor) .. "%", x + w - 49, y + 34, 35, 18, white, 0.85, "right")
-    drawBar(x + 73, y + 39, w - 132, 8, armor, 100, tocolor(75, 160, 225, 255))
-
-    dxDrawRectangle(x + 12, y + 63, w - 24, 1, tocolor(255,255,255,35))
-    drawText("$" .. formatMoney(money), x + 13, y + 66, 154, 29, gold, 1.08, "left")
-    drawText(weapon, x + 165, y + 66, w - 180, 29, muted, 0.78, "right")
-
-    dxDrawRectangle(x + 12, y + h - 12, w - 24, 2, tocolor(255,255,255,25))
-    dxDrawRectangle(x + 12, y + h - 12, clamp(health, 0, 100) / 100 * (w - 24), 2, red)
-
-    -- Online indicator, separate from the money line for quick readability.
-    dxDrawRectangle(sx - 151, 18, 131, 28, panel)
-    dxDrawRectangle(sx - 151, 18, 2, 28, red)
-    dxDrawRectangle(sx - 139, 29, 6, 6, tocolor(90, 230, 145, 255))
-    drawText("آنلاین  " .. tostring(onlineCount), sx - 126, 19, 99, 26, white, 0.82, "left")
+    -- Weapons carried in GTA weapon slots, with clip / total ammo.
+    rowY = rowY + 37
+    dxDrawRectangle(x, rowY, w, 24, panel)
+    dxDrawRectangle(x, rowY, 2, 24, edge)
+    drawText("WEAPONS", x + 8, rowY, 58, 24, gold, 0.68)
+    local slotX = x + 69
+    local shown = 0
+    for slot = 2, 7 do
+        local weapon = getPedWeapon(localPlayer, slot)
+        local totalAmmo = getPedTotalAmmo(localPlayer, slot)
+        if weapon and weapon > 0 and totalAmmo and totalAmmo > 0 then
+            local clip = getPedAmmoInClip(localPlayer, slot) or 0
+            local label = getWeaponLabel(weapon)
+            local compact = label .. " " .. tostring(clip) .. "/" .. tostring(totalAmmo)
+            local chipW = math.min(86, math.max(56, dxGetTextWidth(compact, 0.62, "default-bold") + 10))
+            if slotX + chipW > x + w - 5 then
+                break
+            end
+            dxDrawRectangle(slotX, rowY + 3, chipW, 18, tocolor(36, 39, 48, 235))
+            drawText(compact, slotX + 4, rowY + 2, chipW - 8, 19, white, 0.62)
+            slotX = slotX + chipW + 4
+            shown = shown + 1
+        end
+    end
+    if shown == 0 then
+        drawText("NO AMMO WEAPONS", x + 72, rowY, w - 80, 24, muted, 0.66)
+    end
 end
 
-addEvent("vendrix:hud:sync", true)
-addEventHandler("vendrix:hud:sync", resourceRoot, function(count)
-    if type(count) == "number" then
-        onlineCount = clamp(math.floor(count), 0, 10000)
-    end
-end)
-
-addEventHandler("onClientResourceStart", resourceRoot, function()
-    triggerServerEvent("vendrix:hud:sync", resourceRoot)
-end)
+local function renderHUD()
+    if not isElement(localPlayer) then return end
+    if type(isPlayerMapVisible) == "function" and isPlayerMapVisible() then return end
+    sx, sy = guiGetScreenSize()
+    drawStatusPanel()
+end
 
 local hudErrorReported = false
 local function renderHUDGuarded()
