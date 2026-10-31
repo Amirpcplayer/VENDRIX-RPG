@@ -91,6 +91,13 @@ local function drawRadarFrame()
 end
 
 local function renderHUD()
+    -- Always-visible marker confirms that the client render handler is running.
+    local screenX = guiGetScreenSize()
+    dxDrawRectangle(screenX - 255, 56, 235, 34, tocolor(8, 10, 15, 235), true)
+    dxDrawRectangle(screenX - 255, 56, 3, 34, tocolor(245, 35, 65, 255), true)
+    dxDrawText("VENDRIX HUD CLIENT ACTIVE", screenX - 245, 56, screenX - 28, 90,
+        tocolor(212, 175, 55, 255), 1, "default-bold", "left", "center", false, false, true, true)
+
     if not isElement(localPlayer) then
         return
     end
