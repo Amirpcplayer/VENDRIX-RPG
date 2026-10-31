@@ -43,6 +43,33 @@ local function isValidPassword(password)
         and password:find("[%c]") == nil
 end
 
+-- MTA account names may have been created with different letter casing.
+-- Resolve them case-insensitively so players can log in consistently.
+local function findAccountByUsername(username)
+    if type(username) ~= "string" then
+        return nil
+    end
+
+    local direct = getAccount(username)
+    if direct then
+        return direct
+    end
+
+    local wanted = username:lower()
+    local accounts = getAccounts()
+    for i = 1, #accounts do
+        local account = accounts[i]
+        if isElement(account) then
+            local storedName = getAccountName(account)
+            if type(storedName) == "string" and storedName:lower() == wanted then
+                return account
+            end
+        end
+    end
+
+    return nil
+end
+
 local function getAttemptState(player)
     local state = attempts[player]
     if not state then
@@ -139,7 +166,7 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         return
     end
 
-    local account = getAccount(username)
+    local account = findAccountByUsername(username)
 
     if mode == "register" then
         if account then
@@ -154,7 +181,8 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         end
 
         if not logIn(player, account, password) then
-            sendResult(player, false, "حساب ساخته شد، اما ورود خودکار ناموفق بود. از بخش ورود استفاده کن.", false)
+            outputServerLog(("[VENDRIX] Account created but auto-login failed for username '%s'. Check whether the player is already logged into another account."):format(username))
+            sendResult(player, false, "حساب ساخته شد، اما ورود خودکار ناموفق بود. از بخش ورود با همان نام کاربری و رمز عبور استفاده کن.", false)
             return
         end
 
@@ -162,8 +190,15 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         return
     end
 
-    if not account or not logIn(player, account, password) then
+    if not account then
+        outputServerLog(("[VENDRIX] Login rejected: account '%s' was not found."):format(username))
         state.failures = state.failures + 1
+    elseif not logIn(player, account, password) then
+        outputServerLog(("[VENDRIX] Login rejected: MTA logIn failed for account '%s'. Password is not logged."):format(getAccountName(account)))
+        state.failures = state.failures + 1
+    end
+
+    if not account or not isElement(getPlayerAccount(player)) or getPlayerAccount(player) ~= account then
         if state.failures >= MAX_FAILED_ATTEMPTS then
             state.failures = 0
             state.lockedUntil = now + LOCK_DURATION_MS
