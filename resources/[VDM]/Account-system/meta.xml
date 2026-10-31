@@ -4,12 +4,14 @@
         author="VENDRIX Development Team"
         name="VENDRIX Account System"
         type="script"
-        version="0.2.0"
-        description="Server-validated VENDRIX account system with a custom CEF interface."
+        version="0.3.0"
+        description="Server-validated VENDRIX account system with customizable CEF background and music."
     />
     <script src="server.lua" type="server" />
     <script src="client.lua" type="client" cache="false" />
     <file src="ui/index.html" />
     <file src="ui/style.css" />
     <file src="ui/app.js" />
+    <file src="ui/background.jpg" />
+    <file src="ui/background.mp3" />
 </meta>
