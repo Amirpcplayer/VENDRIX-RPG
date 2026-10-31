@@ -54,7 +54,8 @@ local function getWeaponLabel(weapon)
 end
 
 local function drawStatusPanel()
-    local x, y, w = 20, 20, 286
+    local w = 286
+    local x, y = sx - w - 20, 20
     local health = clamp(getElementHealth(localPlayer), 0, 100)
     local armor = clamp(getPedArmor(localPlayer), 0, 100)
     local money = getPlayerMoney(localPlayer)
@@ -62,46 +63,46 @@ local function drawStatusPanel()
 
     -- Header
     dxDrawRectangle(x, y, w, 31, panel)
-    dxDrawRectangle(x, y, 3, 31, red)
-    dxDrawRectangle(x + 3, y, w - 3, 1, edge)
-    drawText("VENDRIX", x + 12, y + 1, 118, 29, gold, 1.0, "left")
-    drawText("PLAYER STATUS", x + 145, y + 1, w - 157, 29, muted, 0.72, "right")
+    dxDrawRectangle(x + w - 3, y, 3, 31, red)
+    dxDrawRectangle(x, y, w - 3, 1, edge)
+    drawText("VENDRIX", x + w - 130, y + 1, 118, 29, gold, 1.0, "right")
+    drawText("PLAYER STATUS", x + 12, y + 1, 132, 29, muted, 0.72, "left")
 
     -- Health and armor rows
     local rowY = y + 39
     dxDrawRectangle(x, rowY, w, 31, panel)
-    drawText("♥", x + 9, rowY, 24, 30, red, 1.12, "center")
-    drawText(math.floor(health) .. " HP", x + 38, rowY, 64, 30, white, 0.9)
-    drawBar(x + 108, rowY + 12, 112, 7, health, 100, red)
-    drawText(math.floor(health) .. "%", x + 224, rowY, 51, 30, white, 0.78, "right")
+    drawText("♥", x + w - 31, rowY, 24, 30, red, 1.12, "center")
+    drawText(math.floor(health) .. " HP", x + w - 98, rowY, 62, 30, white, 0.9, "right")
+    drawBar(x + 48, rowY + 12, 112, 7, health, 100, red)
+    drawText(math.floor(health) .. "%", x + 7, rowY, 36, 30, white, 0.78, "left")
 
     rowY = rowY + 35
     dxDrawRectangle(x, rowY, w, 31, panel)
     -- Compact shield glyph made from DX rectangles; avoids font-dependent icon assets.
-    dxDrawRectangle(x + 15, rowY + 8, 12, 13, blue)
-    dxDrawRectangle(x + 18, rowY + 5, 6, 3, blue)
-    dxDrawRectangle(x + 18, rowY + 21, 6, 3, blue)
-    drawText(math.floor(armor) .. " ARMOR", x + 38, rowY, 64, 30, white, 0.82)
-    drawBar(x + 108, rowY + 12, 112, 7, armor, 100, blue)
-    drawText(math.floor(armor) .. "%", x + 224, rowY, 51, 30, white, 0.78, "right")
+    dxDrawRectangle(x + w - 27, rowY + 8, 12, 13, blue)
+    dxDrawRectangle(x + w - 24, rowY + 5, 6, 3, blue)
+    dxDrawRectangle(x + w - 24, rowY + 21, 6, 3, blue)
+    drawText(math.floor(armor) .. " ARMOR", x + w - 98, rowY, 62, 30, white, 0.82, "right")
+    drawBar(x + 48, rowY + 12, 112, 7, armor, 100, blue)
+    drawText(math.floor(armor) .. "%", x + 7, rowY, 36, 30, white, 0.78, "left")
 
     -- Cash and wanted level
     rowY = rowY + 35
     dxDrawRectangle(x, rowY, w, 31, panel)
-    drawText("$", x + 10, rowY, 21, 30, gold, 1.15, "center")
-    drawText(formatMoney(money), x + 36, rowY, 122, 30, gold, 0.95)
-    drawText("WANTED", x + 164, rowY, 59, 30, muted, 0.68, "right")
+    drawText("$", x + w - 29, rowY, 21, 30, gold, 1.15, "center")
+    drawText(formatMoney(money), x + w - 153, rowY, 117, 30, gold, 0.95, "right")
+    drawText("WANTED", x + 8, rowY, 59, 30, muted, 0.68, "left")
     for star = 1, 6 do
         local color = star <= wantedLevel and red or tocolor(80, 83, 94, 220)
-        drawText("★", x + 225 + ((star - 1) * 9), rowY, 10, 30, color, 0.72, "center")
+        drawText("★", x + 68 + ((star - 1) * 12), rowY, 12, 30, color, 0.72, "center")
     end
 
     -- Weapons carried in GTA weapon slots, with clip / total ammo.
     rowY = rowY + 37
     dxDrawRectangle(x, rowY, w, 24, panel)
     dxDrawRectangle(x, rowY, 2, 24, edge)
-    drawText("WEAPONS", x + 8, rowY, 58, 24, gold, 0.68)
-    local slotX = x + 69
+    drawText("WEAPONS", x + w - 67, rowY, 59, 24, gold, 0.68, "right")
+    local slotX = x + 5
     local shown = 0
     for slot = 2, 7 do
         local weapon = getPedWeapon(localPlayer, slot)
@@ -111,7 +112,7 @@ local function drawStatusPanel()
             local label = getWeaponLabel(weapon)
             local compact = label .. " " .. tostring(clip) .. "/" .. tostring(totalAmmo)
             local chipW = math.min(86, math.max(56, dxGetTextWidth(compact, 0.62, "default-bold") + 10))
-            if slotX + chipW > x + w - 5 then
+            if slotX + chipW > x + w - 73 then
                 break
             end
             dxDrawRectangle(slotX, rowY + 3, chipW, 18, tocolor(36, 39, 48, 235))
@@ -121,7 +122,15 @@ local function drawStatusPanel()
         end
     end
     if shown == 0 then
-        drawText("NO AMMO WEAPONS", x + 72, rowY, w - 80, 24, muted, 0.66)
+        drawText("NO AMMO WEAPONS", x + 8, rowY, w - 82, 24, muted, 0.66, "left")
+    end
+end
+
+local function hideNativeHUD()
+    -- Hide GTA's built-in status components but deliberately keep the radar.
+    local components = {"health", "armour", "money", "weapon", "ammo", "wanted", "clock", "breath", "vehicle_name", "area_name", "radio"}
+    for i = 1, #components do
+        showPlayerHudComponent(components[i], false)
     end
 end
 
@@ -142,4 +151,6 @@ local function renderHUDGuarded()
     end
 end
 
+addEventHandler("onClientResourceStart", resourceRoot, hideNativeHUD)
+addEventHandler("onClientPlayerSpawn", localPlayer, hideNativeHUD)
 addEventHandler("onClientRender", root, renderHUDGuarded)
