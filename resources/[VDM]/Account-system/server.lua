@@ -146,9 +146,17 @@ end
 local function recordLoginEvent(accountId, username, success, reason, serial)
     local connection = getDatabaseConnection()
     if not connection then return false end
+
+    if accountId then
+        return dbExec(connection,
+            "INSERT INTO account_login_events (account_id, username_attempt, success, reason, serial) VALUES (?, ?, ?, ?, ?)",
+            accountId, username, success and 1 or 0, reason, serial
+        )
+    end
+
     return dbExec(connection,
-        "INSERT INTO account_login_events (account_id, username_attempt, success, reason, serial) VALUES (?, ?, ?, ?, ?)",
-        accountId or nil, username, success and 1 or 0, reason, serial
+        "INSERT INTO account_login_events (username_attempt, success, reason, serial) VALUES (?, ?, ?, ?)",
+        username, success and 1 or 0, reason, serial
     )
 end
 
