@@ -12,6 +12,8 @@
   const status = $("status");
   const statusText = $("statusText");
   const togglePassword = $("togglePassword");
+  const music = $("backgroundMusic");
+  const musicToggle = $("musicToggle");
   let mode = "login";
   let busy = false;
 
@@ -38,6 +40,34 @@
     submitButton.disabled = busy;
     submitText.textContent = busy ? "لطفاً صبر کن..." : (mode === "register" ? "ساخت حساب و ورود" : "ورود به شهر");
   }
+
+  function updateMusicButton(playing) {
+    musicToggle.classList.toggle("playing", playing);
+    musicToggle.setAttribute("aria-pressed", String(playing));
+    musicToggle.querySelector("span").textContent = playing ? "موسیقی روشن" : "موسیقی خاموش";
+  }
+
+  async function toggleMusic() {
+    if (!music) return;
+    if (!music.paused) {
+      music.pause();
+      updateMusicButton(false);
+      return;
+    }
+    try {
+      music.volume = 0.28;
+      await music.play();
+      updateMusicButton(true);
+    } catch (_) {
+      updateMusicButton(false);
+      setStatus("فایل ui/background.mp3 را بررسی کن؛ پخش خودکار ممکن است به کلیک نیاز داشته باشد.", "error");
+    }
+  }
+
+  musicToggle.addEventListener("click", toggleMusic);
+  music.addEventListener("ended", () => updateMusicButton(false));
+  music.addEventListener("pause", () => updateMusicButton(false));
+  music.addEventListener("play", () => updateMusicButton(true));
 
   loginTab.addEventListener("click", () => setMode("login"));
   registerTab.addEventListener("click", () => setMode("register"));
@@ -71,5 +101,6 @@
   });
 
   window.VENDRIX = { setBusy, setStatus };
+  updateMusicButton(false);
   setMode("login");
 })();
