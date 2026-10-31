@@ -12,10 +12,36 @@
   const status = $("status");
   const statusText = $("statusText");
   const togglePassword = $("togglePassword");
+  const rememberMe = $("rememberMe");
+  const REMEMBER_KEY = "vendrix.rememberedUsername";
   const music = $("backgroundMusic");
   const musicToggle = $("musicToggle");
   let mode = "login";
   let busy = false;
+
+  function loadRememberedUsername() {
+    try {
+      const savedUsername = window.localStorage.getItem(REMEMBER_KEY);
+      if (savedUsername && /^[A-Za-z0-9_]{3,24}$/.test(savedUsername)) {
+        username.value = savedUsername;
+        rememberMe.checked = true;
+      }
+    } catch (_) {
+      // If CEF storage is unavailable, login still works without remembering.
+    }
+  }
+
+  function saveRememberedUsername(value) {
+    try {
+      if (rememberMe.checked) {
+        window.localStorage.setItem(REMEMBER_KEY, value);
+      } else {
+        window.localStorage.removeItem(REMEMBER_KEY);
+      }
+    } catch (_) {
+      // Storage is optional; never block authentication because of it.
+    }
+  }
 
   function setMode(next) {
     mode = next;
@@ -96,11 +122,13 @@
       setStatus("ارتباط رابط با کلاینت بازی برقرار نیست. Resource را دوباره اجرا کن.", "error");
       return;
     }
+    saveRememberedUsername(user);
     setBusy(true);
     window.mta.triggerEvent("vendrix:account:uiSubmit", mode, user, pass);
   });
 
   window.VENDRIX = { setBusy, setStatus };
+  loadRememberedUsername();
   updateMusicButton(false);
   setMode("login");
   // Attempt autoplay as soon as the login UI loads; CEF/browser policy may still require user interaction.
