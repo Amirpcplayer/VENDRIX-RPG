@@ -148,20 +148,27 @@ local function drawHUD()
     end
     txt(moneyString(cash), x + 32*u, rowY, w - 34*u, 24*u, C.gold, 0.78*u, "right")
 
-    -- Wanted level: a tight single line, shown only when wanted.
-    if wanted > 0 then
-        rowY = rowY + 30*u
-        txt("WANTED", x, rowY, 56*u, 16*u, C.muted, 0.56*u)
-        for i = 1, 6 do
-            local px = x + 61*u + (i - 1) * 18*u
-            local tint = i <= wanted and tocolor(255,255,255,255) or tocolor(100,105,115,95)
-            if not image("wanted_star", px, rowY, 14*u, 14*u, tint) then
-                txt("★", px, rowY - 1*u, 15*u, 16*u, i <= wanted and C.red or C.empty, 0.63*u, "center")
-            end
+    -- Wanted level: always visible; inactive stars stay subtle at level zero.
+    rowY = rowY + 30*u
+    local wantedAlpha = wanted > 0 and 255 or 75
+    txt("WANTED", x, rowY, 56*u, 16*u,
+        tocolor(143, 151, 166, wanted > 0 and 245 or 105), 0.56*u)
+    for i = 1, 6 do
+        local px = x + 61*u + (i - 1) * 18*u
+        local tint
+        if i <= wanted then
+            tint = tocolor(255, 255, 255, 255)
+        else
+            tint = tocolor(100, 105, 115, wanted > 0 and 95 or wantedAlpha)
+        end
+        if not image("wanted_star", px, rowY, 14*u, 14*u, tint) then
+            local fallbackColor = i <= wanted and C.red
+                or tocolor(100, 105, 115, wanted > 0 and 125 or 65)
+            txt("★", px, rowY - 1*u, 15*u, 16*u, fallbackColor, 0.63*u, "center")
         end
     end
 
-    -- Weapon row: compact weapon icon on the right, ammo count, then ammo icon.
+    -- Weapon row: compact weapon icon with the ammo count; no separate ammo icon.
     rowY = rowY + 29*u
     rect(x, rowY, w, 1*u, C.goldDim)
     txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)),
