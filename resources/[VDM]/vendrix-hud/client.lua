@@ -103,11 +103,12 @@ local function drawHUD()
     if not isElement(localPlayer) or isPlayerMapVisible() then return end
     sx, sy = guiGetScreenSize()
 
-    -- Tall, transparent stack. Larger at 1080p; scales down only on small screens.
-    local scale = clamp(sy / 900, 0.78, 1.18)
-    local w = 224 * scale
-    local x = sx - w - 24 * scale
-    local y = 26 * scale
+    -- Compact custom VENDRIX HUD: narrow right-side status rail.
+    -- Scales with resolution while keeping the same visual proportions.
+    local u = clamp(sy / 1080, 0.72, 1.0)
+    local w = 190 * u
+    local x = sx - w - 22 * u
+    local y = 20 * u
 
     local health = clamp(getElementHealth(localPlayer), 0, 100)
     local armor = clamp(getPedArmor(localPlayer), 0, 100)
@@ -116,61 +117,64 @@ local function drawHUD()
     local weapon = getPedWeapon(localPlayer) or 0
     local clip = getPedAmmoInClip(localPlayer) or 0
     local totalAmmo = getPedTotalAmmo(localPlayer) or 0
-    local u = scale
 
-    -- Logo-only header: add your own transparent assets/logo.png. No text fallback.
-    image("logo", x + 1*u, y - 1*u, 202*u, 39*u)
-    rect(x + 1*u, y + 40*u, w - 2*u, 2*u, C.goldDim)
+    -- Logo only; no generated text branding.
+    image("logo", x + 2*u, y, 156*u, 30*u)
+    rect(x, y + 33*u, w, 2*u, C.red)
+    rect(x + 82*u, y + 33*u, 48*u, 2*u, C.gold)
 
-    -- HEALTH: full row
-    local rowY = y + 49*u
-    if not image("hp", x + 2*u, rowY, 40*u, 40*u) then
-        txt("+", x + 2*u, rowY, 40*u, 40*u, C.red, 1.7*u, "center")
+    -- Two compact status bars with numeric values aligned to the right.
+    local rowY = y + 42*u
+    if not image("hp", x, rowY, 20*u, 20*u) then
+        txt("+", x, rowY - 1*u, 20*u, 21*u, C.red, 0.95*u, "center")
     end
-    txt("HEALTH", x + 50*u, rowY - 2*u, 100*u, 22*u, C.white, 0.83*u)
-    txt(math.floor(health) .. "%", x + 144*u, rowY - 2*u, 72*u, 22*u, C.red, 0.92*u, "right")
-    drawBar(x + 50*u, rowY + 25*u, w - 54*u, 8*u, health, 100, C.red)
+    txt("HP", x + 25*u, rowY - 1*u, 28*u, 18*u, C.white, 0.66*u)
+    txt(math.floor(health) .. "%", x + w - 43*u, rowY - 1*u, 43*u, 18*u, C.red, 0.72*u, "right")
+    drawBar(x + 25*u, rowY + 19*u, w - 28*u, 4*u, health, 100, C.red)
 
-    -- ARMOR: own row underneath health
-    rowY = y + 105*u
-    if not image("armor", x + 2*u, rowY, 40*u, 40*u) then
-        txt("A", x + 2*u, rowY, 40*u, 40*u, C.blue, 1.15*u, "center")
+    rowY = rowY + 31*u
+    if not image("armor", x, rowY, 20*u, 20*u) then
+        txt("A", x, rowY - 1*u, 20*u, 21*u, C.blue, 0.72*u, "center")
     end
-    txt("ARMOR", x + 50*u, rowY - 2*u, 100*u, 22*u, C.white, 0.83*u)
-    txt(math.floor(armor) .. "%", x + 144*u, rowY - 2*u, 72*u, 22*u, C.blue, 0.92*u, "right")
-    drawBar(x + 50*u, rowY + 25*u, w - 54*u, 8*u, armor, 100, C.blue)
+    txt("AP", x + 25*u, rowY - 1*u, 28*u, 18*u, C.white, 0.66*u)
+    txt(math.floor(armor) .. "%", x + w - 43*u, rowY - 1*u, 43*u, 18*u, C.blue, 0.72*u, "right")
+    drawBar(x + 25*u, rowY + 19*u, w - 28*u, 4*u, armor, 100, C.blue)
 
-    -- MONEY: separate line
-    rowY = y + 164*u
-    if not image("money", x + 3*u, rowY, 34*u, 34*u) then
-        txt("$", x + 3*u, rowY - 1*u, 34*u, 34*u, C.gold, 1.35*u, "center")
+    -- Money strip: no panel background, only a fine gold accent.
+    rowY = rowY + 32*u
+    rect(x, rowY, 2*u, 25*u, C.gold)
+    if not image("money", x + 7*u, rowY + 2*u, 20*u, 20*u) then
+        txt("$", x + 7*u, rowY, 20*u, 23*u, C.gold, 0.82*u, "center")
     end
-    txt("CASH", x + 48*u, rowY - 2*u, w - 50*u, 18*u, C.muted, 0.67*u)
-    txt(moneyString(cash), x + 48*u, rowY + 15*u, w - 50*u, 24*u, C.gold, 0.92*u)
+    txt(moneyString(cash), x + 32*u, rowY, w - 34*u, 24*u, C.gold, 0.78*u, "right")
 
-    -- WANTED: its own row with larger stars.
-    rowY = y + 216*u
-    txt("WANTED LEVEL", x + 1*u, rowY, w - 2*u, 21*u, C.white, 0.77*u)
-    for i = 1, 6 do
-        local px = x + 2*u + (i - 1) * 36*u
-        local tint = i <= wanted and tocolor(255,255,255,255) or tocolor(100,105,115,115)
-        if not image("wanted_star", px, rowY + 24*u, 29*u, 29*u, tint) then
-            txt("★", px, rowY + 22*u, 31*u, 32*u, i <= wanted and C.red or C.empty, 1.12*u, "center")
+    -- Wanted level: a tight single line, shown only when wanted.
+    if wanted > 0 then
+        rowY = rowY + 30*u
+        txt("WANTED", x, rowY, 56*u, 16*u, C.muted, 0.56*u)
+        for i = 1, 6 do
+            local px = x + 61*u + (i - 1) * 18*u
+            local tint = i <= wanted and tocolor(255,255,255,255) or tocolor(100,105,115,95)
+            if not image("wanted_star", px, rowY, 14*u, 14*u, tint) then
+                txt("★", px, rowY - 1*u, 15*u, 16*u, i <= wanted and C.red or C.empty, 0.63*u, "center")
+            end
         end
     end
 
-    -- WEAPON: image centered on its own row; name and ammo below.
-    rowY = y + 278*u
+    -- Weapon art is a restrained landscape thumbnail, not a tall block.
+    rowY = rowY + 29*u
+    rect(x, rowY, w, 1*u, C.goldDim)
     local weaponFile = "weapon_" .. tostring(weapon)
-    if not image(weaponFile, x + 8*u, rowY, w - 16*u, 67*u) then
-        txt("WEAPON", x + 8*u, rowY + 12*u, w - 16*u, 36*u, C.gold, 0.88*u, "center")
+    if not image(weaponFile, x + 8*u, rowY + 5*u, w - 16*u, 43*u) then
+        txt("WEAPON", x + 8*u, rowY + 8*u, w - 16*u, 32*u, C.gold, 0.7*u, "center")
     end
-    rect(x + 1*u, rowY + 71*u, w - 2*u, 1*u, C.goldDim)
-    txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)), x + 1*u, rowY + 77*u, w - 2*u, 25*u, C.white, 0.83*u, "center")
-    if not image("ammo", x + 36*u, rowY + 108*u, 24*u, 24*u) then
-        txt("AMMO", x + 30*u, rowY + 107*u, 44*u, 24*u, C.gold, 0.61*u, "center")
+    txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)),
+        x, rowY + 48*u, w, 17*u, C.white, 0.61*u, "center")
+    if not image("ammo", x + 43*u, rowY + 68*u, 15*u, 15*u) then
+        txt("AMMO", x + 37*u, rowY + 67*u, 29*u, 16*u, C.gold, 0.48*u, "center")
     end
-    txt(tostring(clip) .. " / " .. tostring(totalAmmo), x + 64*u, rowY + 105*u, w - 68*u, 29*u, C.gold, 0.94*u, "left")
+    txt(tostring(clip) .. " / " .. tostring(totalAmmo),
+        x + 61*u, rowY + 65*u, w - 64*u, 19*u, C.gold, 0.72*u, "left")
 end
 
 local function hideNativeHUD()
