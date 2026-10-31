@@ -70,6 +70,35 @@ local function findAccountByUsername(username)
     return nil
 end
 
+-- One account registration per MTA serial. The serial is stored in native
+-- account data, which persists with MTA's account database.
+local SERIAL_DATA_KEY = "vendrix:registrationSerial"
+
+local function findAccountBySerial(serial)
+    if type(serial) ~= "string" or serial == "" then
+        return nil
+    end
+
+    local accounts = getAccounts()
+    for i = 1, #accounts do
+        local account = accounts[i]
+        if isElement(account) and getAccountData(account, SERIAL_DATA_KEY) == serial then
+            return account
+        end
+    end
+
+    return nil
+end
+
+local function isPlayerLoggedInto(player, account)
+    if not isElement(player) or not account then
+        return false
+    end
+
+    local current = getPlayerAccount(player)
+    return current == account and not isGuestAccount(current)
+end
+
 local function getAttemptState(player)
     local state = attempts[player]
     if not state then
@@ -166,6 +195,12 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         return
     end
 
+    local serial = getPlayerSerial(player)
+    if type(serial) ~= "string" or serial == "" then
+        sendResult(player, false, "شناسه سیستم قابل دریافت نیست؛ اتصال را دوباره برقرار کن.", false)
+        return
+    end
+
     local account = findAccountByUsername(username)
 
     if mode == "register" then
@@ -174,15 +209,39 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
             return
         end
 
-        account = addAccount(username, password)
-        if not account then
-            sendResult(player, false, "ساخت حساب انجام نشد؛ دوباره تلاش کن.", false)
+        local serialAccount = findAccountBySerial(serial)
+        if serialAccount then
+            sendResult(player, false, "این سیستم قبلاً یک حساب ساخته است. با همان حساب وارد شو.", false)
+            outputServerLog(("[VENDRIX] Registration blocked: serial already belongs to account '%s'."):format(getAccountName(serialAccount)))
             return
         end
 
-        if not logIn(player, account, password) then
-            outputServerLog(("[VENDRIX] Account created but auto-login failed for username '%s'. Check whether the player is already logged into another account."):format(username))
-            sendResult(player, false, "حساب ساخته شد، اما ورود خودکار ناموفق بود. از بخش ورود با همان نام کاربری و رمز عبور استفاده کن.", false)
+        -- MTA native accounts are persistent; keep registration and authentication
+        -- on the same storage backend until the SQL auth migration is implemented.
+        account = addAccount(username, password)
+        if not account then
+            sendResult(player, false, "ساخت حساب انجام نشد؛ نام کاربری را بررسی کن و دوباره تلاش کن.", false)
+            return
+        end
+
+        if not setAccountData(account, SERIAL_DATA_KEY, serial, false) then
+            removeAccount(account)
+            sendResult(player, false, "ثبت امن حساب انجام نشد؛ دوباره تلاش کن.", false)
+            outputServerLog("[VENDRIX] ERROR: Failed to bind registration serial; newly created account rolled back.")
+            return
+        end
+
+        -- Treat an already-authenticated matching account as success; otherwise
+        -- ask MTA to log in and verify the resulting player account explicitly.
+        local loginSucceeded = isPlayerLoggedInto(player, account)
+        if not loginSucceeded then
+            loginSucceeded = logIn(player, account, password) == true
+                or isPlayerLoggedInto(player, account)
+        end
+
+        if not loginSucceeded or not isPlayerLoggedInto(player, account) then
+            outputServerLog(("[VENDRIX] Account '%s' was created and serial-bound, but MTA auto-login failed."):format(username))
+            sendResult(player, false, "حساب ساخته شد، اما ورود خودکار انجام نشد. با همان نام کاربری و رمز عبور وارد شو.", false)
             return
         end
 
@@ -193,9 +252,28 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
     if not account then
         outputServerLog(("[VENDRIX] Login rejected: account '%s' was not found."):format(username))
         state.failures = state.failures + 1
-    elseif not logIn(player, account, password) then
-        outputServerLog(("[VENDRIX] Login rejected: MTA logIn failed for account '%s'. Password is not logged."):format(getAccountName(account)))
-        state.failures = state.failures + 1
+    else
+        local loginSucceeded = isPlayerLoggedInto(player, account)
+        if not loginSucceeded then
+            loginSucceeded = logIn(player, account, password) == true
+                or isPlayerLoggedInto(player, account)
+        end
+
+        if not loginSucceeded or not isPlayerLoggedInto(player, account) then
+            outputServerLog(("[VENDRIX] Login rejected: MTA logIn failed for account '%s'. Password is not logged."):format(getAccountName(account)))
+            state.failures = state.failures + 1
+        else
+            -- Existing accounts created before serial enforcement are claimed
+            -- by their first successful login, unless this serial is already bound.
+            local boundAccount = findAccountBySerial(serial)
+            if not boundAccount then
+                setAccountData(account, SERIAL_DATA_KEY, serial, false)
+            elseif boundAccount ~= account then
+                outputServerLog(("[VENDRIX] Account '%s' logged in from a serial already bound to '%s'."):format(
+                    getAccountName(account), getAccountName(boundAccount)
+                ))
+            end
+        end
     end
 
     if not account or not isElement(getPlayerAccount(player)) or getPlayerAccount(player) ~= account then
