@@ -362,10 +362,16 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
                     return
                 end
 
-                local idRows = dbPoll(dbQuery(connection, "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1", normalized), -1)
-                local accountId = type(idRows) == "table" and idRows[1] and tonumber(idRows[1].id) or nil
-                recordLoginEvent(accountId, username, true, "registration", serial)
-                finishAuthentication(player)
+                dbQuery(function(idHandle)
+                    if not isElement(player) then return end
+                    local idRows = dbPoll(idHandle, 0)
+                    local accountId = type(idRows) == "table" and idRows[1] and tonumber(idRows[1].id) or nil
+                    recordLoginEvent(accountId, username, true, "registration", serial)
+                    finishAuthentication(player)
+                end, connection,
+                    "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1",
+                    normalized
+                )
             end)
             return
         end
@@ -441,11 +447,18 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
             end
 
             setAccountData(nativeAccount, SERIAL_DATA_KEY, serial, false)
-            local rows2 = dbPoll(dbQuery(connection, "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1", getAccountName(nativeAccount):lower()), -1)
-            local accountId = type(rows2) == "table" and rows2[1] and tonumber(rows2[1].id) or nil
-            recordLoginEvent(accountId, getAccountName(nativeAccount), true, "legacy_account_migrated", serial)
-            finishAuthentication(player)
-            outputServerLog(("[VENDRIX SQL] Legacy account migrated to SQL: %s"):format(getAccountName(nativeAccount)))
+            local migratedName = getAccountName(nativeAccount)
+            dbQuery(function(idHandle)
+                if not isElement(player) then return end
+                local rows2 = dbPoll(idHandle, 0)
+                local accountId = type(rows2) == "table" and rows2[1] and tonumber(rows2[1].id) or nil
+                recordLoginEvent(accountId, migratedName, true, "legacy_account_migrated", serial)
+                finishAuthentication(player)
+                outputServerLog(("[VENDRIX SQL] Legacy account migrated to SQL: %s"):format(migratedName))
+            end, connection,
+                "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1",
+                migratedName:lower()
+            )
         end)
     end, connection,
         "SELECT id, username, password_hash, status FROM accounts WHERE username_normalized = ? LIMIT 1",
