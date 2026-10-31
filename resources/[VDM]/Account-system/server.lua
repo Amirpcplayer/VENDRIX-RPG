@@ -106,7 +106,7 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         return
     end
 
-    if now - state.lastRequest < REQUEST_COOLDOWN_MS then
+    if state.lastRequest > 0 and now - state.lastRequest < REQUEST_COOLDOWN_MS then
         sendResult(player, false, "کمی صبر کن و دوباره تلاش کن.", false)
         return
     end
