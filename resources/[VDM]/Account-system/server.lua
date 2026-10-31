@@ -136,14 +136,106 @@ local function finishAuthentication(player)
     outputServerLog(("[VENDRIX] Player authenticated: %s"):format(getPlayerName(player)))
 end
 
-addEvent(READY_EVENT, true)
-addEventHandler(READY_EVENT, resourceRoot, function()
-    local player = client
-    if not isElement(player) then
+local function getDatabaseConnection()
+    if type(vendrixGetDatabaseConnection) ~= "function" then
+        return false
+    end
+    return vendrixGetDatabaseConnection()
+end
+
+local function recordLoginEvent(accountId, username, success, reason, serial)
+    local connection = getDatabaseConnection()
+    if not connection then return false end
+    return dbExec(connection,
+        "INSERT INTO account_login_events (account_id, username_attempt, success, reason, serial) VALUES (?, ?, ?, ?, ?)",
+        accountId or nil, username, success and 1 or 0, reason, serial
+    )
+end
+
+local function updateSqlLoginMetadata(accountId, serial)
+    local connection = getDatabaseConnection()
+    if not connection then return false end
+    return dbExec(connection,
+        "UPDATE accounts SET last_login_at = strftime('%s','now'), last_login_serial = ? WHERE id = ?",
+        serial, accountId
+    )
+end
+
+local function completeSqlLogin(player, username, password, serial, sqlAccount)
+    if not isElement(player) then return end
+
+    local current = getPlayerAccount(player)
+    if current and not isGuestAccount(current) then
+        if getAccountName(current):lower() ~= username:lower() then
+            sendResult(player, false, "ابتدا از حساب فعلی خارج شو و سپس وارد حساب دیگری شو.", false)
+            return
+        end
+        updateSqlLoginMetadata(sqlAccount.id, serial)
+        recordLoginEvent(sqlAccount.id, username, true, "sql_login_existing_session", serial)
+        finishAuthentication(player)
         return
     end
 
+    local nativeAccount = findAccountByUsername(username)
+    if not nativeAccount then
+        nativeAccount = addAccount(username, password)
+        if not nativeAccount then
+            recordLoginEvent(sqlAccount.id, username, false, "native_account_sync_failed", serial)
+            sendResult(player, false, "حساب SQL معتبر است اما ساخت حساب سازگار با MTA انجام نشد. دوباره تلاش کن.", false)
+            return
+        end
+    end
+
+    local loggedIn = logIn(player, nativeAccount, password) == true
+        or isPlayerLoggedInto(player, nativeAccount)
+
+    if not loggedIn then
+        -- SQL password verification already succeeded, so synchronize the
+        -- native compatibility account before retrying MTA login.
+        if not setAccountPassword(nativeAccount, password) then
+            recordLoginEvent(sqlAccount.id, username, false, "native_password_sync_failed", serial)
+            sendResult(player, false, "ورود SQL تأیید شد اما همگام‌سازی حساب MTA ناموفق بود.", false)
+            return
+        end
+        loggedIn = logIn(player, nativeAccount, password) == true
+            or isPlayerLoggedInto(player, nativeAccount)
+    end
+
+    if not loggedIn or not isPlayerLoggedInto(player, nativeAccount) then
+        recordLoginEvent(sqlAccount.id, username, false, "native_login_failed", serial)
+        sendResult(player, false, "ورود حساب تأیید شد اما ورود داخلی MTA انجام نشد؛ دوباره تلاش کن.", false)
+        return
+    end
+
+    if getAccountData(nativeAccount, SERIAL_DATA_KEY) == false then
+        setAccountData(nativeAccount, SERIAL_DATA_KEY, serial, false)
+    end
+
+    updateSqlLoginMetadata(sqlAccount.id, serial)
+    recordLoginEvent(sqlAccount.id, username, true, "sql_login", serial)
+    finishAuthentication(player)
+end
+
+addEvent(READY_EVENT, true)
+addEventHandler(READY_EVENT, resourceRoot, function()
+    local player = client
+    if not isElement(player) then return end
+
     if authenticated[player] then
+        sendResult(player, true, "حساب شما فعال است.", true)
+        return
+    end
+
+    -- A resource restart clears the Lua session table but does not log the
+    -- player out of MTA's native account system. Restore that session safely.
+    local current = getPlayerAccount(player)
+    if current and not isGuestAccount(current) then
+        authenticated[player] = true
+        attempts[player] = nil
+        setElementAlpha(player, 255)
+        setElementFrozen(player, false)
+        fadeCamera(player, true)
+        setCameraTarget(player, player)
         sendResult(player, true, "حساب شما فعال است.", true)
         return
     end
@@ -156,9 +248,7 @@ end)
 addEvent(AUTH_EVENT, true)
 addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
     local player = client
-    if not isElement(player) or source ~= resourceRoot then
-        return
-    end
+    if not isElement(player) or source ~= resourceRoot then return end
 
     if authenticated[player] then
         sendResult(player, true, "شما قبلاً وارد حساب شده‌اید.", true)
@@ -169,11 +259,9 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
     local now = getTickCount()
 
     if now < state.lockedUntil then
-        local remaining = math.ceil((state.lockedUntil - now) / 1000)
-        sendResult(player, false, ("به دلیل تلاش‌های ناموفق، %d ثانیه صبر کن."):format(remaining), false)
+        sendResult(player, false, ("به دلیل تلاش‌های ناموفق، %d ثانیه صبر کن."):format(math.ceil((state.lockedUntil - now) / 1000)), false)
         return
     end
-
     if state.lastRequest > 0 and now - state.lastRequest < REQUEST_COOLDOWN_MS then
         sendResult(player, false, "کمی صبر کن و دوباره تلاش کن.", false)
         return
@@ -184,14 +272,18 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         sendResult(player, false, "درخواست نامعتبر است.", false)
         return
     end
-
     if not isValidUsername(username) then
         sendResult(player, false, "نام کاربری باید ۳ تا ۲۴ حرف انگلیسی، عدد یا زیرخط باشد.", false)
         return
     end
-
     if not isValidPassword(password) then
         sendResult(player, false, "رمز عبور باید ۸ تا ۶۴ نویسه و بدون نویسه کنترلی باشد.", false)
+        return
+    end
+
+    local currentAccount = getPlayerAccount(player)
+    if currentAccount and not isGuestAccount(currentAccount) then
+        sendResult(player, false, "ابتدا از حساب فعلی خارج شو و سپس ورود را انجام بده.", false)
         return
     end
 
@@ -201,95 +293,165 @@ addEventHandler(AUTH_EVENT, resourceRoot, function(mode, username, password)
         return
     end
 
-    local account = findAccountByUsername(username)
-
-    if mode == "register" then
-        if account then
-            sendResult(player, false, "این نام کاربری قبلاً ثبت شده است.", false)
-            return
-        end
-
-        local serialAccount = findAccountBySerial(serial)
-        if serialAccount then
-            sendResult(player, false, "این سیستم قبلاً یک حساب ساخته است. با همان حساب وارد شو.", false)
-            outputServerLog(("[VENDRIX] Registration blocked: serial already belongs to account '%s'."):format(getAccountName(serialAccount)))
-            return
-        end
-
-        -- MTA native accounts are persistent; keep registration and authentication
-        -- on the same storage backend until the SQL auth migration is implemented.
-        account = addAccount(username, password)
-        if not account then
-            sendResult(player, false, "ساخت حساب انجام نشد؛ نام کاربری را بررسی کن و دوباره تلاش کن.", false)
-            return
-        end
-
-        if not setAccountData(account, SERIAL_DATA_KEY, serial, false) then
-            removeAccount(account)
-            sendResult(player, false, "ثبت امن حساب انجام نشد؛ دوباره تلاش کن.", false)
-            outputServerLog("[VENDRIX] ERROR: Failed to bind registration serial; newly created account rolled back.")
-            return
-        end
-
-        -- Treat an already-authenticated matching account as success; otherwise
-        -- ask MTA to log in and verify the resulting player account explicitly.
-        local loginSucceeded = isPlayerLoggedInto(player, account)
-        if not loginSucceeded then
-            loginSucceeded = logIn(player, account, password) == true
-                or isPlayerLoggedInto(player, account)
-        end
-
-        if not loginSucceeded or not isPlayerLoggedInto(player, account) then
-            outputServerLog(("[VENDRIX] Account '%s' was created and serial-bound, but MTA auto-login failed."):format(username))
-            sendResult(player, false, "حساب ساخته شد، اما ورود خودکار انجام نشد. با همان نام کاربری و رمز عبور وارد شو.", false)
-            return
-        end
-
-        finishAuthentication(player)
+    local connection = getDatabaseConnection()
+    if not connection then
+        sendResult(player, false, "اتصال دیتابیس آماده نیست؛ چند لحظه دیگر تلاش کن.", false)
+        outputServerLog("[VENDRIX SQL] Authentication rejected because database connection is unavailable.")
         return
     end
 
-    if not account then
-        outputServerLog(("[VENDRIX] Login rejected: account '%s' was not found."):format(username))
-        state.failures = state.failures + 1
-    else
-        local loginSucceeded = isPlayerLoggedInto(player, account)
-        if not loginSucceeded then
-            loginSucceeded = logIn(player, account, password) == true
-                or isPlayerLoggedInto(player, account)
+    local normalized = username:lower()
+    dbQuery(function(queryHandle)
+        if not isElement(player) then return end
+        local rows, errorCode, errorMessage = dbPoll(queryHandle, 0)
+        if type(rows) ~= "table" then
+            outputServerLog(("[VENDRIX SQL] Account lookup failed (%s): %s"):format(tostring(errorCode), tostring(errorMessage)))
+            sendResult(player, false, "خواندن دیتابیس ناموفق بود؛ دوباره تلاش کن.", false)
+            return
         end
 
-        if not loginSucceeded or not isPlayerLoggedInto(player, account) then
-            outputServerLog(("[VENDRIX] Login rejected: MTA logIn failed for account '%s'. Password is not logged."):format(getAccountName(account)))
-            state.failures = state.failures + 1
-        else
-            -- Existing accounts created before serial enforcement are claimed
-            -- by their first successful login, unless this serial is already bound.
-            local boundAccount = findAccountBySerial(serial)
-            if not boundAccount then
-                setAccountData(account, SERIAL_DATA_KEY, serial, false)
-            elseif boundAccount ~= account then
-                outputServerLog(("[VENDRIX] Account '%s' logged in from a serial already bound to '%s'."):format(
-                    getAccountName(account), getAccountName(boundAccount)
-                ))
+        local sqlAccount = rows[1]
+
+        if mode == "register" then
+            if sqlAccount or findAccountByUsername(username) then
+                sendResult(player, false, "این نام کاربری قبلاً ثبت شده است.", false)
+                return
             end
-        end
-    end
 
-    if not account or not isElement(getPlayerAccount(player)) or getPlayerAccount(player) ~= account then
-        if state.failures >= MAX_FAILED_ATTEMPTS then
-            state.failures = 0
-            state.lockedUntil = now + LOCK_DURATION_MS
-            sendResult(player, false, "تلاش‌های ناموفق زیاد بود؛ ۱۰ ثانیه صبر کن.", false)
-        else
+            local serialAccount = findAccountBySerial(serial)
+            if serialAccount then
+                sendResult(player, false, "این سیستم قبلاً یک حساب ساخته است. با همان حساب وارد شو.", false)
+                return
+            end
+
+            passwordHash(password, "bcrypt", { cost = 10 }, function(hash)
+                if not isElement(player) then return end
+                if type(hash) ~= "string" or hash == "" then
+                    sendResult(player, false, "ساخت هش امن رمز عبور ناموفق بود.", false)
+                    return
+                end
+
+                local inserted = dbExec(connection,
+                    "INSERT INTO accounts (username, username_normalized, password_hash, status, last_login_serial) VALUES (?, ?, ?, 'active', ?)",
+                    username, normalized, hash, serial
+                )
+                if not inserted then
+                    sendResult(player, false, "ذخیره حساب در SQL انجام نشد؛ دوباره تلاش کن.", false)
+                    return
+                end
+
+                local createdAccount = addAccount(username, password)
+                if not createdAccount then
+                    dbExec(connection, "DELETE FROM accounts WHERE username_normalized = ?", normalized)
+                    sendResult(player, false, "ساخت حساب سازگار با MTA انجام نشد؛ ثبت‌نام لغو شد.", false)
+                    return
+                end
+
+                if not setAccountData(createdAccount, SERIAL_DATA_KEY, serial, false) then
+                    removeAccount(createdAccount)
+                    dbExec(connection, "DELETE FROM accounts WHERE username_normalized = ?", normalized)
+                    sendResult(player, false, "اتصال امن حساب به سیستم انجام نشد؛ ثبت‌نام لغو شد.", false)
+                    return
+                end
+
+                local loggedIn = logIn(player, createdAccount, password) == true
+                    or isPlayerLoggedInto(player, createdAccount)
+                if not loggedIn or not isPlayerLoggedInto(player, createdAccount) then
+                    recordLoginEvent(nil, username, false, "registration_native_login_failed", serial)
+                    sendResult(player, false, "حساب SQL ساخته شد، اما ورود خودکار انجام نشد. دوباره با همین مشخصات وارد شو.", false)
+                    return
+                end
+
+                local idRows = dbPoll(dbQuery(connection, "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1", normalized), -1)
+                local accountId = type(idRows) == "table" and idRows[1] and tonumber(idRows[1].id) or nil
+                recordLoginEvent(accountId, username, true, "registration", serial)
+                finishAuthentication(player)
+            end)
+            return
+        end
+
+        if sqlAccount then
+            if sqlAccount.status ~= "active" then
+                recordLoginEvent(tonumber(sqlAccount.id), username, false, "account_not_active", serial)
+                sendResult(player, false, "این حساب در حال حاضر فعال نیست.", false)
+                return
+            end
+
+            passwordVerify(password, sqlAccount.password_hash, {}, function(matches)
+                if not isElement(player) then return end
+                if matches ~= true then
+                    state.failures = state.failures + 1
+                    recordLoginEvent(tonumber(sqlAccount.id), username, false, "invalid_password", serial)
+                    if state.failures >= MAX_FAILED_ATTEMPTS then
+                        state.failures = 0
+                        state.lockedUntil = getTickCount() + LOCK_DURATION_MS
+                        sendResult(player, false, "تلاش‌های ناموفق زیاد بود؛ ۱۰ ثانیه صبر کن.", false)
+                    else
+                        sendResult(player, false, ("نام کاربری یا رمز عبور اشتباه است. (%d/%d)"):format(state.failures, MAX_FAILED_ATTEMPTS), false)
+                    end
+                    return
+                end
+                state.failures = 0
+                completeSqlLogin(player, username, password, serial, sqlAccount)
+            end)
+            return
+        end
+
+        -- Legacy migration: validate the password against the existing MTA
+        -- account once, then hash it and insert it into SQL before auth succeeds.
+        local nativeAccount = findAccountByUsername(username)
+        if not nativeAccount then
+            state.failures = state.failures + 1
+            recordLoginEvent(nil, username, false, "account_not_found", serial)
             sendResult(player, false, ("نام کاربری یا رمز عبور اشتباه است. (%d/%d)"):format(state.failures, MAX_FAILED_ATTEMPTS), false)
+            return
         end
-        return
-    end
 
-    finishAuthentication(player)
+        local boundAccount = findAccountBySerial(serial)
+        if boundAccount and boundAccount ~= nativeAccount then
+            sendResult(player, false, "این سیستم قبلاً به حساب دیگری متصل شده است.", false)
+            return
+        end
+
+        local loggedIn = logIn(player, nativeAccount, password) == true
+            or isPlayerLoggedInto(player, nativeAccount)
+        if not loggedIn or not isPlayerLoggedInto(player, nativeAccount) then
+            state.failures = state.failures + 1
+            recordLoginEvent(nil, username, false, "legacy_password_rejected", serial)
+            sendResult(player, false, ("نام کاربری یا رمز عبور اشتباه است. (%d/%d)"):format(state.failures, MAX_FAILED_ATTEMPTS), false)
+            return
+        end
+
+        passwordHash(password, "bcrypt", { cost = 10 }, function(hash)
+            if not isElement(player) then return end
+            if type(hash) ~= "string" or hash == "" then
+                logOut(player)
+                sendResult(player, false, "ساخت هش امن رمز عبور ناموفق بود؛ دوباره تلاش کن.", false)
+                return
+            end
+
+            local inserted = dbExec(connection,
+                "INSERT INTO accounts (username, username_normalized, password_hash, status, last_login_at, last_login_serial) VALUES (?, ?, ?, 'active', strftime('%s','now'), ?)",
+                getAccountName(nativeAccount), getAccountName(nativeAccount):lower(), hash, serial
+            )
+            if not inserted then
+                logOut(player)
+                sendResult(player, false, "انتقال حساب قدیمی به SQL ناموفق بود؛ دوباره تلاش کن.", false)
+                return
+            end
+
+            setAccountData(nativeAccount, SERIAL_DATA_KEY, serial, false)
+            local rows2 = dbPoll(dbQuery(connection, "SELECT id FROM accounts WHERE username_normalized = ? LIMIT 1", getAccountName(nativeAccount):lower()), -1)
+            local accountId = type(rows2) == "table" and rows2[1] and tonumber(rows2[1].id) or nil
+            recordLoginEvent(accountId, getAccountName(nativeAccount), true, "legacy_account_migrated", serial)
+            finishAuthentication(player)
+            outputServerLog(("[VENDRIX SQL] Legacy account migrated to SQL: %s"):format(getAccountName(nativeAccount)))
+        end)
+    end, connection,
+        "SELECT id, username, password_hash, status FROM accounts WHERE username_normalized = ? LIMIT 1",
+        normalized
+    )
 end)
-
 
 -- Use the username registered in the native VENDRIX account system for normal T chat.
 -- Only replace public chat (type 0); team/action chat keeps its existing MTA behavior.
