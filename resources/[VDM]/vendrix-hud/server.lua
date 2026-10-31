@@ -4,6 +4,7 @@
 local EVENT_SYNC = "vendrix:hud:sync"
 local sessionCounter = 0
 local playerSessionIds = {}
+local lastSyncRequest = {}
 
 local function assignSessionId(player)
     if not isElement(player) or getElementType(player) ~= "player" then
@@ -42,7 +43,9 @@ end)
 
 addEventHandler("onPlayerQuit", root, function()
     playerSessionIds[source] = nil
-    syncOnlineCount()
+    lastSyncRequest[source] = nil
+    local count = math.max(0, #getElementsByType("player") - 1)
+    triggerClientEvent(root, EVENT_SYNC, resourceRoot, count)
 end)
 
 addEvent(EVENT_SYNC, true)
@@ -51,6 +54,12 @@ addEventHandler(EVENT_SYNC, resourceRoot, function()
     if not client or source ~= resourceRoot then
         return
     end
+    local now = getTickCount()
+    local previous = lastSyncRequest[client] or 0
+    if now - previous < 3000 then
+        return
+    end
+    lastSyncRequest[client] = now
     assignSessionId(client)
     syncOnlineCount(client)
 end)
