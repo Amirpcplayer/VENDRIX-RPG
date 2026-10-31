@@ -105,7 +105,7 @@ local function drawHUD()
 
     -- Compact custom VENDRIX HUD: narrow right-side status rail.
     -- Scales with resolution while keeping the same visual proportions.
-    local u = clamp(sy / 1080, 0.72, 1.0)
+    local u = clamp(sy / 900, 0.86, 1.2)
     local w = 190 * u
     local x = sx - w - 22 * u
     local y = 20 * u
@@ -161,20 +161,29 @@ local function drawHUD()
         end
     end
 
-    -- Weapon art is a restrained landscape thumbnail, not a tall block.
+    -- Weapon row: compact weapon icon on the right, ammo count, then ammo icon.
     rowY = rowY + 29*u
     rect(x, rowY, w, 1*u, C.goldDim)
-    local weaponFile = "weapon_" .. tostring(weapon)
-    if not image(weaponFile, x + 8*u, rowY + 5*u, w - 16*u, 43*u) then
-        txt("WEAPON", x + 8*u, rowY + 8*u, w - 16*u, 32*u, C.gold, 0.7*u, "center")
-    end
     txt(weaponNames[weapon] or ("WEAPON " .. tostring(weapon)),
-        x, rowY + 48*u, w, 17*u, C.white, 0.61*u, "center")
-    if not image("ammo", x + 43*u, rowY + 68*u, 15*u, 15*u) then
-        txt("AMMO", x + 37*u, rowY + 67*u, 29*u, 16*u, C.gold, 0.48*u, "center")
+        x, rowY + 5*u, w - 2*u, 17*u, C.white, 0.66*u, "right")
+
+    local iconSize = 18*u
+    local iconY = rowY + 27*u
+    local weaponIconX = x + w - iconSize
+    local ammoTextW = 82*u
+    local ammoTextX = weaponIconX - 7*u - ammoTextW
+    local ammoIconX = ammoTextX - iconSize - 7*u
+
+    if not image("ammo", ammoIconX, iconY, iconSize, iconSize) then
+        txt("A", ammoIconX, iconY, iconSize, iconSize, C.gold, 0.65*u, "center")
     end
     txt(tostring(clip) .. " / " .. tostring(totalAmmo),
-        x + 61*u, rowY + 65*u, w - 64*u, 19*u, C.gold, 0.72*u, "left")
+        ammoTextX, iconY - 1*u, ammoTextW, iconSize + 2*u, C.gold, 0.74*u, "right")
+
+    local weaponFile = "weapon_" .. tostring(weapon)
+    if not image(weaponFile, weaponIconX, iconY, iconSize, iconSize) then
+        txt("W", weaponIconX, iconY, iconSize, iconSize, C.white, 0.65*u, "center")
+    end
 end
 
 local function hideNativeHUD()
