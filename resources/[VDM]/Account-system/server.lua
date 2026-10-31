@@ -226,17 +226,42 @@ addEventHandler(READY_EVENT, resourceRoot, function()
         return
     end
 
-    -- A resource restart clears the Lua session table but does not log the
-    -- player out of MTA's native account system. Restore that session safely.
     local current = getPlayerAccount(player)
     if current and not isGuestAccount(current) then
-        authenticated[player] = true
-        attempts[player] = nil
-        setElementAlpha(player, 255)
-        setElementFrozen(player, false)
-        fadeCamera(player, true)
-        setCameraTarget(player, player)
-        sendResult(player, true, "حساب شما فعال است.", true)
+        local connection = getDatabaseConnection()
+        if not connection then
+            setElementAlpha(player, 0)
+            setElementFrozen(player, true)
+            triggerClientEvent(player, "vendrix:account:show", resourceRoot)
+            return
+        end
+
+        local currentName = getAccountName(current)
+        dbQuery(function(queryHandle)
+            if not isElement(player) then return end
+            local rows = dbPoll(queryHandle, 0)
+            local row = type(rows) == "table" and rows[1] or nil
+            if row and row.status == "active" then
+                authenticated[player] = true
+                attempts[player] = nil
+                setElementAlpha(player, 255)
+                setElementFrozen(player, false)
+                fadeCamera(player, true)
+                setCameraTarget(player, player)
+                sendResult(player, true, "حساب شما فعال است.", true)
+                return
+            end
+
+            -- SQL is authoritative: an absent or disabled SQL account must
+            -- not remain authenticated just because MTA retained a session.
+            logOut(player)
+            setElementAlpha(player, 0)
+            setElementFrozen(player, true)
+            triggerClientEvent(player, "vendrix:account:show", resourceRoot)
+        end, connection,
+            "SELECT status FROM accounts WHERE username_normalized = ? LIMIT 1",
+            currentName:lower()
+        )
         return
     end
 
@@ -511,7 +536,7 @@ addEventHandler("onPlayerQuit", root, function()
 end)
 
 addEventHandler("onResourceStart", resourceRoot, function()
-    outputServerLog("[VENDRIX] Account-system started. Native MTA account storage is enabled.")
+    outputServerLog("[VENDRIX] Account-system started. SQLite is authoritative for authentication; native accounts are retained for MTA ACL compatibility.")
 end)
 
 addEventHandler("onResourceStop", resourceRoot, function()
